@@ -15,6 +15,8 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'autoRotate').name('Auto-Rotate');
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed');
+  rotation.add(params, 'directionA', ['Clockwise', 'Counterclockwise']).name('Direction A (bottom)');
+  rotation.add(params, 'directionB', ['Clockwise', 'Counterclockwise']).name('Direction B (top)');
 
   // Appearance folder
   const appearance = gui.addFolder('Appearance');

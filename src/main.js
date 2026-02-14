@@ -43,6 +43,8 @@ const params = {
   // Rotation
   autoRotate: true,
   rotationSpeed: 0.5,
+  directionA: 'Counterclockwise',
+  directionB: 'Clockwise',
 
   // Appearance
   renderMode: 'Glass',
@@ -123,8 +125,10 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
-    tetraA.rotation.y -= params.rotationSpeed * deltaTime; // counterclockwise
-    tetraB.rotation.y += params.rotationSpeed * deltaTime; // clockwise
+    const signA = params.directionA === 'Clockwise' ? 1 : -1;
+    const signB = params.directionB === 'Clockwise' ? 1 : -1;
+    tetraA.rotation.y += signA * params.rotationSpeed * deltaTime;
+    tetraB.rotation.y += signB * params.rotationSpeed * deltaTime;
   }
 
   orbitControls.update();
