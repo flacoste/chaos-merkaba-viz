@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createTetrahedron } from './tetrahedron.js';
+import { createTetrahedron, setRenderMode } from './tetrahedron.js';
+import { createControlPanel } from './controls.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -43,6 +44,12 @@ const params = {
   autoRotate: true,
   rotationSpeed: 0.5,
 
+  // Appearance
+  renderMode: 'Glass',
+  colorA: '#ff0000',
+  colorB: '#ffffff',
+  transparency: 0.0,
+
   // State (not exposed to GUI)
   currentSeparation: MAX_SEPARATION * 0.8,
   fused: false,
@@ -58,6 +65,36 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Apply initial materials
+setRenderMode(tetraA, params.renderMode, params.colorA, params.transparency);
+setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency);
+
+// Reset function
+function reset() {
+  params.currentSeparation = params.initialSeparation * MAX_SEPARATION;
+  params.fused = false;
+}
+
+// Fullscreen (placeholder for now, will be refined in Task 6)
+let gui;
+const fullscreenFn = () => {
+  if (!document.fullscreenElement) {
+    renderer.domElement.requestFullscreen();
+    if (gui) gui.domElement.style.display = 'none';
+  } else {
+    document.exitFullscreen();
+  }
+};
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && gui) {
+    gui.domElement.style.display = '';
+  }
+});
+
+// Control panel
+gui = createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset, fullscreenFn);
 
 // Animation loop
 let lastTime = performance.now();
