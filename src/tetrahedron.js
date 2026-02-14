@@ -5,7 +5,15 @@ const TETRA_RADIUS = 1;
 
 export function createTetrahedron(color, flipUpsideDown = false) {
   const geometry = new THREE.TetrahedronGeometry(TETRA_RADIUS, 0);
-  // Start with glass (default mode)
+
+  // Align geometry so a vertex points along +Y and the opposite face center along -Y.
+  // Default TetrahedronGeometry has vertices at cube corners (1,1,1)/sqrt(3) etc.
+  // Rotate so (1,1,1)/sqrt(3) maps to (0,1,0).
+  const defaultVertex = new THREE.Vector3(1, 1, 1).normalize();
+  const targetUp = new THREE.Vector3(0, 1, 0);
+  const alignQuat = new THREE.Quaternion().setFromUnitVectors(defaultVertex, targetUp);
+  geometry.applyQuaternion(alignQuat);
+
   const material = createGlassMaterial(color);
   const mesh = new THREE.Mesh(geometry, material);
 
@@ -13,7 +21,7 @@ export function createTetrahedron(color, flipUpsideDown = false) {
     mesh.rotation.x = Math.PI;
   }
 
-  // Store edges for wireframe mode
+  // Store edges for wireframe mode — must use aligned geometry
   const edgesGeometry = new THREE.EdgesGeometry(geometry);
   const edgesMaterial = createWireframeMaterial(color);
   const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
