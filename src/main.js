@@ -29,11 +29,24 @@ scene.add(directionalLight);
 const MAX_SEPARATION = 3;
 const tetraA = createTetrahedron(0xff0000, false); // red, points up
 const tetraB = createTetrahedron(0xffffff, true);  // white, points down
-const initialSep = MAX_SEPARATION * 0.8;
-tetraA.position.y = -initialSep / 2;
-tetraB.position.y = initialSep / 2;
 scene.add(tetraA);
 scene.add(tetraB);
+
+// Shared params — lil-gui will bind to this later
+const params = {
+  // Transform
+  scale: 1.0,
+  initialSeparation: 0.8, // fraction of MAX_SEPARATION
+  approachSpeed: 0.3,
+
+  // Rotation
+  autoRotate: true,
+  rotationSpeed: 0.5,
+
+  // State (not exposed to GUI)
+  currentSeparation: MAX_SEPARATION * 0.8,
+  fused: false,
+};
 
 // OrbitControls
 const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -47,9 +60,39 @@ window.addEventListener('resize', () => {
 });
 
 // Animation loop
+let lastTime = performance.now();
+
 function animate() {
   requestAnimationFrame(animate);
+
+  const now = performance.now();
+  const deltaTime = (now - lastTime) / 1000; // seconds
+  lastTime = now;
+
+  // Scale
+  tetraA.scale.setScalar(params.scale);
+  tetraB.scale.setScalar(params.scale);
+
+  // Approach
+  if (!params.fused) {
+    params.currentSeparation -= params.approachSpeed * deltaTime;
+    if (params.currentSeparation <= 0) {
+      params.currentSeparation = 0;
+      params.fused = true;
+    }
+  }
+  tetraA.position.y = -params.currentSeparation / 2;
+  tetraB.position.y = params.currentSeparation / 2;
+
+  // Rotation (Y-axis only)
+  if (params.autoRotate) {
+    tetraA.rotation.y -= params.rotationSpeed * deltaTime; // counterclockwise
+    tetraB.rotation.y += params.rotationSpeed * deltaTime; // clockwise
+  }
+
   orbitControls.update();
   renderer.render(scene, camera);
 }
 animate();
+
+export { params, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
