@@ -76,7 +76,7 @@ function reset() {
   params.fused = false;
 }
 
-// Fullscreen (placeholder for now, will be refined in Task 6)
+// Fullscreen
 let gui;
 const fullscreenFn = () => {
   if (!document.fullscreenElement) {
