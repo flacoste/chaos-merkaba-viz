@@ -1,5 +1,5 @@
 import GUI from 'lil-gui';
-import { setRenderMode } from './tetrahedron.js';
+import { setRenderMode, updateMeshColors } from './tetrahedron.js';
 
 export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, resetFn, fullscreenFn) {
   const gui = new GUI({ title: 'Tetraviz' });
@@ -9,21 +9,42 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   transform.add(params, 'scale', 0.1, 3.0, 0.01).name('Scale');
   transform.add(params, 'approachSpeed', 0.0, 2.0, 0.01).name('Approach Speed');
 
-  // Rotation folder
+  // Rotation folder (shared settings only)
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'autoRotate').name('Auto-Rotate');
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed');
-  rotation.add(params, 'directionA', ['Clockwise', 'Counterclockwise']).name('Pointing Up');
-  rotation.add(params, 'directionB', ['Clockwise', 'Counterclockwise']).name('Pointing Down');
 
-  // Appearance folder
+  // Per-tetrahedron folder builder
+  function addTetraFolder(name, mesh, colorKey, perVertexKey, vcKey, dirKey, labels) {
+    const folder = gui.addFolder(name);
+    folder.add(params, dirKey, ['Clockwise', 'Counterclockwise']).name('Direction');
+    folder.addColor(params, colorKey).name('Main Color')
+      .onChange(() => applyColors(params, tetraA, tetraB));
+    folder.add(params, perVertexKey).name('Per-Vertex Colors')
+      .onChange(() => applyColors(params, tetraA, tetraB));
+
+    const vcFolder = folder.addFolder('Vertex Colors');
+    const vcObj = params[vcKey];
+    const keys = Object.keys(vcObj);
+    for (let i = 0; i < keys.length; i++) {
+      vcFolder.addColor(vcObj, keys[i]).name(labels[i])
+        .onChange(() => applyColors(params, tetraA, tetraB));
+    }
+    return folder;
+  }
+
+  addTetraFolder('Pointing Up', tetraA,
+    'colorA', 'perVertexA', 'vertexColorsA', 'directionA',
+    ['Top', 'Front Left', 'Front Right', 'Back']);
+
+  addTetraFolder('Pointing Down', tetraB,
+    'colorB', 'perVertexB', 'vertexColorsB', 'directionB',
+    ['Bottom', 'Front Right', 'Front Left', 'Back']);
+
+  // Appearance folder (no more Wireframe option)
   const appearance = gui.addFolder('Appearance');
-  appearance.add(params, 'renderMode', ['Solid', 'Wireframe', 'Glass']).name('Render Mode')
+  appearance.add(params, 'renderMode', ['Solid', 'Glass']).name('Render Mode')
     .onChange(() => { applyMaterials(params, tetraA, tetraB); updateGlassVisibility(); });
-  appearance.addColor(params, 'colorA').name('Pointing Up')
-    .onChange(() => applyMaterials(params, tetraA, tetraB));
-  appearance.addColor(params, 'colorB').name('Pointing Down')
-    .onChange(() => applyMaterials(params, tetraA, tetraB));
   appearance.add(params, 'transparency', 0.0, 1.0, 0.01).name('Transparency')
     .onChange(() => applyMaterials(params, tetraA, tetraB));
 
@@ -36,7 +57,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   glass.add(params, 'ior', 1.0, 2.5, 0.01).name('IOR').onChange(glassOnChange);
   glass.close();
 
-  // Show/hide glass folder based on render mode
   function updateGlassVisibility() {
     glass.domElement.style.display = params.renderMode === 'Glass' ? '' : 'none';
   }
@@ -60,6 +80,11 @@ function glassParamsFrom(params) {
 
 function applyMaterials(params, tetraA, tetraB) {
   const gp = glassParamsFrom(params);
-  setRenderMode(tetraA, params.renderMode, params.colorA, params.transparency, gp);
-  setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency, gp);
+  setRenderMode(tetraA, params.renderMode, params.transparency, gp);
+  setRenderMode(tetraB, params.renderMode, params.transparency, gp);
+}
+
+function applyColors(params, tetraA, tetraB) {
+  updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
+  updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
 }
