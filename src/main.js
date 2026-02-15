@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createTetrahedron, setRenderMode } from './tetrahedron.js';
+import { createTetrahedron, setRenderMode, updateMeshColors } from './tetrahedron.js';
 import { createControlPanel } from './controls.js';
 
 // Scene
@@ -166,6 +166,10 @@ const initialGlass = {
 };
 setRenderMode(tetraA, params.renderMode, params.transparency, initialGlass);
 setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
+
+// Apply initial colors (needed when restoring saved per-vertex settings)
+updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
+updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
 
 // Reset function
 function reset() {
