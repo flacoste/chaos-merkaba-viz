@@ -39,7 +39,9 @@ scene.add(tetraB);
 // each other in the XZ plane, forming a proper star tetrahedron.
 const frontRightA = tetraA.userData.originalVerts[1]; // [apex, frontRight, frontLeft, back]
 const alphaA = Math.atan2(frontRightA.z, frontRightA.x);
-const MERKABA_TARGET_DELTA = Math.PI - 2 * alphaA;
+const TWO_PI = 2 * Math.PI;
+const MERKABA_TARGET_DELTA = ((Math.PI - 2 * alphaA) % TWO_PI + TWO_PI) % TWO_PI;
+const ALIGNMENT_TOLERANCE = 0.08; // ~4.6 degrees
 
 const STORAGE_KEY = 'tetraviz-settings';
 
@@ -118,6 +120,7 @@ function loadSettings() {
   base.rampStartTime = null;
   base.rampBaseSpeed = 0;
   base.lockAchieved = false;
+  base.fuseTime = null;
   return base;
 }
 
@@ -196,6 +199,7 @@ function reset() {
   params.rampStartTime = null;
   params.rampBaseSpeed = 0;
   params.lockAchieved = false;
+  params.fuseTime = null;
 }
 
 // Fullscreen
@@ -238,6 +242,7 @@ function animate() {
     if (params.currentSeparation <= 0) {
       params.currentSeparation = 0;
       params.fused = true;
+      params.fuseTime = now;
       // Activate speed ramp if duration > 0
       if (params.rampDuration > 0) {
         params.rampStartTime = now;
@@ -256,10 +261,13 @@ function animate() {
       const elapsedSec = (now - params.rampStartTime) / 1000;
       const durationSec = params.rampDuration * 60;
       const progress = Math.min(elapsedSec / durationSec, 1.0);
-      effectiveSpeed = params.rampBaseSpeed + (params.rampMaxSpeed - params.rampBaseSpeed) * progress;
+      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
+      effectiveSpeed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
     }
 
     const isSpinLock = params.fusionMode !== 'Unlock';
+    const signA = params.directionA === 'Clockwise' ? -1 : 1;
+    const signB = params.directionB === 'Clockwise' ? -1 : 1;
 
     if (params.fused && isSpinLock && params.lockAchieved) {
       // Locked: rotate both together in the mode's direction
@@ -269,26 +277,25 @@ function animate() {
       tetraB.rotation.y += delta;
     } else if (params.fused && isSpinLock && !params.lockAchieved) {
       // Seeking: rotate independently, check for alignment each frame
-      const signA = params.directionA === 'Clockwise' ? -1 : 1;
-      const signB = params.directionB === 'Clockwise' ? -1 : 1;
       tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
       tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
 
       // Check merkaba alignment
       const relAngle = tetraA.rotation.y - tetraB.rotation.y;
-      const TWO_PI = 2 * Math.PI;
       const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
-      const target = ((MERKABA_TARGET_DELTA % TWO_PI) + TWO_PI) % TWO_PI;
-      const diff = Math.abs(normalized - target);
-      if (diff < 0.08 || diff > (TWO_PI - 0.08)) {
+      const diff = Math.abs(normalized - MERKABA_TARGET_DELTA);
+      if (diff < ALIGNMENT_TOLERANCE || diff > (TWO_PI - ALIGNMENT_TOLERANCE)) {
         // Snap to exact alignment: keep A, adjust B
+        tetraB.rotation.y = tetraA.rotation.y - MERKABA_TARGET_DELTA;
+        params.lockAchieved = true;
+      }
+      // Fallback: force-snap after 3 seconds if relative angle isn't changing
+      if (params.fuseTime !== null && (now - params.fuseTime) > 3000) {
         tetraB.rotation.y = tetraA.rotation.y - MERKABA_TARGET_DELTA;
         params.lockAchieved = true;
       }
     } else {
       // Unlock mode or pre-fusion: independent rotation
-      const signA = params.directionA === 'Clockwise' ? -1 : 1;
-      const signB = params.directionB === 'Clockwise' ? -1 : 1;
       tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
       tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
     }
