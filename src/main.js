@@ -47,8 +47,6 @@ const params = {
 
   // Appearance
   renderMode: 'Glass',
-  colorA: '#ff0000',
-  colorB: '#ffffff',
   transparency: 0.0,
 
   // Glass material
@@ -56,6 +54,26 @@ const params = {
   thickness: 1.0,
   roughness: 0.35,
   ior: 1.5,
+
+  // Colors - Pointing Up
+  colorA: '#ff0000',
+  perVertexA: false,
+  vertexColorsA: {
+    top: '#CCFF00',
+    frontLeft: '#FF6600',
+    frontRight: '#4169E1',
+    back: '#CC0000',
+  },
+
+  // Colors - Pointing Down
+  colorB: '#ffffff',
+  perVertexB: false,
+  vertexColorsB: {
+    bottom: '#FFD700',
+    frontRight: '#800080',
+    frontLeft: '#1C1C2E',
+    back: '#228B22',
+  },
 
   // State (not exposed to GUI)
   currentSeparation: MAX_SEPARATION,
@@ -101,8 +119,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Apply initial materials
-setRenderMode(tetraA, params.renderMode, params.colorA, params.transparency);
-setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency);
+setRenderMode(tetraA, params.renderMode, params.transparency);
+setRenderMode(tetraB, params.renderMode, params.transparency);
 
 // Reset function
 function reset() {
