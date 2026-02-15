@@ -86,10 +86,10 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 // Keyboard: +/- to adjust rotation speed
 window.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') {
-    params.rotationSpeed = Math.min(params.rotationSpeed + 0.1, 5.0);
+    params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
   } else if (e.key === '-' || e.key === '_') {
-    params.rotationSpeed = Math.max(params.rotationSpeed - 0.1, 0.0);
+    params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
   }
 });
