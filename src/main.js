@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createTetrahedron, setRenderMode } from './tetrahedron.js';
+import { createTetrahedron, setRenderMode, updateMeshColors } from './tetrahedron.js';
 import { createControlPanel } from './controls.js';
 
 // Scene
@@ -33,8 +33,9 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
-// Shared params — lil-gui will bind to this later
-const params = {
+const STORAGE_KEY = 'tetraviz-settings';
+
+const DEFAULTS = Object.freeze({
   // Transform
   scale: 1.0,
   approachSpeed: 0.3,
@@ -58,27 +59,62 @@ const params = {
   // Colors - Pointing Up
   colorA: '#ff0000',
   perVertexA: false,
-  vertexColorsA: {
+  vertexColorsA: Object.freeze({
     top: '#d6ff33',
     frontRight: '#42425c',
     frontLeft: '#fd8c4e',
     back: '#CC0000',
-  },
+  }),
 
   // Colors - Pointing Down
   colorB: '#ffffff',
   perVertexB: false,
-  vertexColorsB: {
+  vertexColorsB: Object.freeze({
     bottom: '#e2c72c',
     frontRight: '#800080',
     frontLeft: '#4169E1',
     back: '#228B22',
-  },
+  }),
+});
 
-  // State (not exposed to GUI)
-  currentSeparation: MAX_SEPARATION,
-  fused: false,
-};
+function loadSettings() {
+  const base = {
+    ...DEFAULTS,
+    vertexColorsA: { ...DEFAULTS.vertexColorsA },
+    vertexColorsB: { ...DEFAULTS.vertexColorsB },
+  };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      for (const key of Object.keys(saved)) {
+        if (!(key in DEFAULTS)) continue;
+        if (key === 'vertexColorsA' || key === 'vertexColorsB') {
+          Object.assign(base[key], saved[key]);
+        } else {
+          base[key] = saved[key];
+        }
+      }
+    }
+  } catch {
+    // Corrupted storage — use defaults
+  }
+  // Always add transient state fresh
+  base.currentSeparation = MAX_SEPARATION;
+  base.fused = false;
+  return base;
+}
+
+function saveSettings() {
+  const toSave = {};
+  for (const key of Object.keys(DEFAULTS)) {
+    toSave[key] = params[key];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+}
+
+// Shared params — initialized from saved settings or defaults
+const params = loadSettings();
 
 // OrbitControls
 const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -103,6 +139,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (dx * dx + dy * dy < 9) {
     params.autoRotate = !params.autoRotate;
     gui.controllersRecursive().find(c => c.property === 'autoRotate')?.updateDisplay();
+    saveSettings();
   }
   pointerStart = null;
 });
@@ -112,15 +149,27 @@ window.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') {
     params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+    saveSettings();
   } else if (e.key === '-' || e.key === '_') {
     params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+    saveSettings();
   }
 });
 
 // Apply initial materials
-setRenderMode(tetraA, params.renderMode, params.transparency);
-setRenderMode(tetraB, params.renderMode, params.transparency);
+const initialGlass = {
+  transmission: params.transmission,
+  thickness: params.thickness,
+  roughness: params.roughness,
+  ior: params.ior,
+};
+setRenderMode(tetraA, params.renderMode, params.transparency, initialGlass);
+setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
+
+// Apply initial colors (needed when restoring saved per-vertex settings)
+updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
+updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
 
 // Reset function
 function reset() {
@@ -186,4 +235,4 @@ function animate() {
 }
 animate();
 
-export { params, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
+export { params, DEFAULTS, STORAGE_KEY, saveSettings, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
