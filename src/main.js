@@ -52,7 +52,7 @@ const params = {
   transparency: 0.0,
 
   // State (not exposed to GUI)
-  currentSeparation: MAX_SEPARATION * 0.8,
+  currentSeparation: MAX_SEPARATION,
   fused: false,
 };
 
@@ -67,13 +67,29 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// Click to toggle auto-rotate (distinguish from orbit drag)
+let pointerStart = null;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerStart = { x: e.clientX, y: e.clientY };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!pointerStart) return;
+  const dx = e.clientX - pointerStart.x;
+  const dy = e.clientY - pointerStart.y;
+  if (dx * dx + dy * dy < 9) {
+    params.autoRotate = !params.autoRotate;
+    gui.controllersRecursive().find(c => c.property === 'autoRotate')?.updateDisplay();
+  }
+  pointerStart = null;
+});
+
 // Apply initial materials
 setRenderMode(tetraA, params.renderMode, params.colorA, params.transparency);
 setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency);
 
 // Reset function
 function reset() {
-  params.currentSeparation = MAX_SEPARATION * 0.8;
+  params.currentSeparation = MAX_SEPARATION;
   params.fused = false;
 }
 
