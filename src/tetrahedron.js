@@ -37,7 +37,7 @@ export function createTetrahedron(color, flipUpsideDown = false) {
   return mesh;
 }
 
-export function setRenderMode(mesh, mode, color, transparency) {
+export function setRenderMode(mesh, mode, color, transparency, glassParams = {}) {
   const edges = mesh.userData.edges;
 
   // Dispose old material
@@ -62,7 +62,7 @@ export function setRenderMode(mesh, mode, color, transparency) {
       break;
 
     case 'Glass':
-      mesh.material = createGlassMaterial(color, 1.0 - transparency);
+      mesh.material = createGlassMaterial(color, 1.0 - transparency, glassParams);
       mesh.visible = true;
       edges.visible = false;
       break;

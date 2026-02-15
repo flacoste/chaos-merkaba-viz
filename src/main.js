@@ -51,6 +51,22 @@ const params = {
   colorB: '#ffffff',
   transparency: 0.0,
 
+  // Glass material
+  transmission: 0.9,
+  thickness: 0.5,
+  roughness: 0.1,
+  ior: 1.5,
+  metalness: 0.0,
+  clearcoat: 0.0,
+  clearcoatRoughness: 0.0,
+  iridescence: 0.0,
+  iridescenceIOR: 1.3,
+  sheen: 0.0,
+  sheenRoughness: 0.0,
+  sheenColor: '#ffffff',
+  attenuationColor: '#ffffff',
+  attenuationDistance: 0.0,
+
   // State (not exposed to GUI)
   currentSeparation: MAX_SEPARATION,
   fused: false,
