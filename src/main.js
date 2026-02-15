@@ -236,6 +236,11 @@ function animate() {
     if (params.currentSeparation <= 0) {
       params.currentSeparation = 0;
       params.fused = true;
+      // Activate speed ramp if duration > 0
+      if (params.rampDuration > 0) {
+        params.rampStartTime = now;
+        params.rampBaseSpeed = params.rotationSpeed;
+      }
     }
   }
   tetraA.position.y = -params.currentSeparation / 2;
@@ -243,10 +248,19 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
+    // Compute effective speed (with ramp if active)
+    let effectiveSpeed = params.rotationSpeed;
+    if (params.rampStartTime !== null) {
+      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const durationSec = params.rampDuration * 60;
+      const progress = Math.min(elapsedSec / durationSec, 1.0);
+      effectiveSpeed = params.rampBaseSpeed + (params.rampMaxSpeed - params.rampBaseSpeed) * progress;
+    }
+
     const signA = params.directionA === 'Clockwise' ? -1 : 1;
     const signB = params.directionB === 'Clockwise' ? -1 : 1;
-    tetraA.rotation.y += signA * params.rotationSpeed * deltaTime;
-    tetraB.rotation.y += signB * params.rotationSpeed * deltaTime;
+    tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
+    tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
   }
 
   orbitControls.update();
