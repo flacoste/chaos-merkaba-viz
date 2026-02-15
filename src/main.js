@@ -33,15 +33,18 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
-// Compute the target relative rotation angle for merkaba alignment.
-// When the two tetrahedra are at this relative Y rotation, corresponding
-// named vertices (front-right↔front-right, etc.) are directly opposite
-// each other in the XZ plane, forming a proper star tetrahedron.
-const frontRightA = tetraA.userData.originalVerts[1]; // [apex, frontRight, frontLeft, back]
-const alphaA = Math.atan2(frontRightA.z, frontRightA.x);
+// Stella octangula alignment: compute the target relative rotation angle.
+// Due to atan2 sorting reversal when B is flipped, we must use both
+// tetrahedra's actual vertex angles (not assume B[1] mirrors A[1]).
+const alphaA = Math.atan2(tetraA.userData.originalVerts[1].z, tetraA.userData.originalVerts[1].x);
+const alphaB = Math.atan2(tetraB.userData.originalVerts[1].z, tetraB.userData.originalVerts[1].x);
 const TWO_PI = 2 * Math.PI;
-const MERKABA_TARGET_DELTA = ((Math.PI - 2 * alphaA) % TWO_PI + TWO_PI) % TWO_PI;
-const ALIGNMENT_TOLERANCE = 0.08; // ~4.6 degrees
+const SYMMETRY_PERIOD = TWO_PI / 3; // 120° — 3-fold symmetry period
+// Stella octangula: corresponding named vertices 180° apart (interleaved star)
+const STELLA_TARGET = ((Math.PI - alphaA + alphaB) % SYMMETRY_PERIOD + SYMMETRY_PERIOD) % SYMMETRY_PERIOD;
+// Merkaba: corresponding named vertices at same XZ angle (overlapping Star of David)
+const MERKABA_TARGET = ((alphaB - alphaA) % SYMMETRY_PERIOD + SYMMETRY_PERIOD) % SYMMETRY_PERIOD;
+const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees
 
 const STORAGE_KEY = 'tetraviz-settings';
 
@@ -58,6 +61,7 @@ const DEFAULTS = Object.freeze({
 
   // Fusion behavior
   fusionMode: 'Unlock',       // 'Unlock' | 'Spin Lock CW' | 'Spin Lock CCW'
+  lockShape: 'Stella Octangula', // 'Stella Octangula' | 'Merkaba'
   rampDuration: 0.0,          // minutes to reach max speed (0 = disabled)
   rampMaxSpeed: 10.0,         // target speed for ramp (0-20)
 
@@ -280,18 +284,21 @@ function animate() {
       tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
       tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
 
-      // Check merkaba alignment
+      // Check alignment (mod 120° due to 3-fold symmetry)
+      const target = params.lockShape === 'Merkaba' ? MERKABA_TARGET : STELLA_TARGET;
       const relAngle = tetraA.rotation.y - tetraB.rotation.y;
-      const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
-      const diff = Math.abs(normalized - MERKABA_TARGET_DELTA);
-      if (diff < ALIGNMENT_TOLERANCE || diff > (TWO_PI - ALIGNMENT_TOLERANCE)) {
-        // Snap to exact alignment: keep A, adjust B
-        tetraB.rotation.y = tetraA.rotation.y - MERKABA_TARGET_DELTA;
+      const normalized = ((relAngle % SYMMETRY_PERIOD) + SYMMETRY_PERIOD) % SYMMETRY_PERIOD;
+      const diff = Math.abs(normalized - target);
+      if (diff < ALIGNMENT_TOLERANCE || diff > (SYMMETRY_PERIOD - ALIGNMENT_TOLERANCE)) {
+        // Snap to nearest exact alignment: keep A, adjust B
+        const k = Math.round((relAngle - target) / SYMMETRY_PERIOD);
+        tetraB.rotation.y = tetraA.rotation.y - (target + k * SYMMETRY_PERIOD);
         params.lockAchieved = true;
       }
       // Fallback: force-snap after 3 seconds if relative angle isn't changing
-      if (params.fuseTime !== null && (now - params.fuseTime) > 3000) {
-        tetraB.rotation.y = tetraA.rotation.y - MERKABA_TARGET_DELTA;
+      if (!params.lockAchieved && params.fuseTime !== null && (now - params.fuseTime) > 3000) {
+        const k = Math.round((relAngle - target) / SYMMETRY_PERIOD);
+        tetraB.rotation.y = tetraA.rotation.y - (target + k * SYMMETRY_PERIOD);
         params.lockAchieved = true;
       }
     } else {
