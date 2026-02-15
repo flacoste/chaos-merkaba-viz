@@ -37,7 +37,6 @@ scene.add(tetraB);
 const params = {
   // Transform
   scale: 1.0,
-  initialSeparation: 0.8, // fraction of MAX_SEPARATION
   approachSpeed: 0.3,
 
   // Rotation
@@ -74,7 +73,7 @@ setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency);
 
 // Reset function
 function reset() {
-  params.currentSeparation = params.initialSeparation * MAX_SEPARATION;
+  params.currentSeparation = MAX_SEPARATION * 0.8;
   params.fused = false;
 }
 
@@ -125,8 +124,8 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
-    const signA = params.directionA === 'Clockwise' ? 1 : -1;
-    const signB = params.directionB === 'Clockwise' ? 1 : -1;
+    const signA = params.directionA === 'Clockwise' ? -1 : 1;
+    const signB = params.directionB === 'Clockwise' ? -1 : 1;
     tetraA.rotation.y += signA * params.rotationSpeed * deltaTime;
     tetraB.rotation.y += signB * params.rotationSpeed * deltaTime;
   }

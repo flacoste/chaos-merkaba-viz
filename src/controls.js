@@ -7,8 +7,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   // Transform folder
   const transform = gui.addFolder('Transform');
   transform.add(params, 'scale', 0.1, 3.0, 0.01).name('Scale');
-  transform.add(params, 'initialSeparation', 0.1, 1.0, 0.01).name('Initial Separation')
-    .onChange(() => resetFn());
   transform.add(params, 'approachSpeed', 0.0, 2.0, 0.01).name('Approach Speed');
 
   // Rotation folder
