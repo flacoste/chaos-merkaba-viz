@@ -33,6 +33,14 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
+// Compute the target relative rotation angle for merkaba alignment.
+// When the two tetrahedra are at this relative Y rotation, corresponding
+// named vertices (front-right↔front-right, etc.) are directly opposite
+// each other in the XZ plane, forming a proper star tetrahedron.
+const frontRightA = tetraA.userData.originalVerts[1]; // [apex, frontRight, frontLeft, back]
+const alphaA = Math.atan2(frontRightA.z, frontRightA.x);
+const MERKABA_TARGET_DELTA = Math.PI - 2 * alphaA;
+
 const STORAGE_KEY = 'tetraviz-settings';
 
 const DEFAULTS = Object.freeze({
