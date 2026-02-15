@@ -34,16 +34,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   glass.add(params, 'thickness', 0.0, 5.0, 0.01).name('Thickness').onChange(glassOnChange);
   glass.add(params, 'roughness', 0.0, 1.0, 0.01).name('Roughness').onChange(glassOnChange);
   glass.add(params, 'ior', 1.0, 2.5, 0.01).name('IOR').onChange(glassOnChange);
-  glass.add(params, 'metalness', 0.0, 1.0, 0.01).name('Metalness').onChange(glassOnChange);
-  glass.add(params, 'clearcoat', 0.0, 1.0, 0.01).name('Clearcoat').onChange(glassOnChange);
-  glass.add(params, 'clearcoatRoughness', 0.0, 1.0, 0.01).name('Clearcoat Roughness').onChange(glassOnChange);
-  glass.add(params, 'iridescence', 0.0, 1.0, 0.01).name('Iridescence').onChange(glassOnChange);
-  glass.add(params, 'iridescenceIOR', 1.0, 2.5, 0.01).name('Iridescence IOR').onChange(glassOnChange);
-  glass.add(params, 'sheen', 0.0, 1.0, 0.01).name('Sheen').onChange(glassOnChange);
-  glass.add(params, 'sheenRoughness', 0.0, 1.0, 0.01).name('Sheen Roughness').onChange(glassOnChange);
-  glass.addColor(params, 'sheenColor').name('Sheen Color').onChange(glassOnChange);
-  glass.addColor(params, 'attenuationColor').name('Attenuation Color').onChange(glassOnChange);
-  glass.add(params, 'attenuationDistance', 0.0, 10.0, 0.01).name('Attenuation Distance').onChange(glassOnChange);
   glass.close();
 
   // Show/hide glass folder based on render mode
@@ -65,16 +55,6 @@ function glassParamsFrom(params) {
     thickness: params.thickness,
     roughness: params.roughness,
     ior: params.ior,
-    metalness: params.metalness,
-    clearcoat: params.clearcoat,
-    clearcoatRoughness: params.clearcoatRoughness,
-    iridescence: params.iridescence,
-    iridescenceIOR: params.iridescenceIOR,
-    sheen: params.sheen,
-    sheenRoughness: params.sheenRoughness,
-    sheenColor: params.sheenColor,
-    attenuationColor: params.attenuationColor,
-    attenuationDistance: params.attenuationDistance,
   };
 }
 
