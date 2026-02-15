@@ -46,6 +46,11 @@ const DEFAULTS = Object.freeze({
   directionA: 'Counterclockwise',
   directionB: 'Clockwise',
 
+  // Fusion behavior
+  fusionMode: 'Unlock',       // 'Unlock' | 'Spin Lock CW' | 'Spin Lock CCW'
+  rampDuration: 0.0,          // minutes to reach max speed (0 = disabled)
+  rampMaxSpeed: 10.0,         // target speed for ramp (0-20)
+
   // Appearance
   renderMode: 'Glass',
   transparency: 0.0,
@@ -102,6 +107,9 @@ function loadSettings() {
   // Always add transient state fresh
   base.currentSeparation = MAX_SEPARATION;
   base.fused = false;
+  base.rampStartTime = null;
+  base.rampBaseSpeed = 0;
+  base.lockAchieved = false;
   return base;
 }
 
@@ -175,6 +183,9 @@ updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB)
 function reset() {
   params.currentSeparation = MAX_SEPARATION;
   params.fused = false;
+  params.rampStartTime = null;
+  params.rampBaseSpeed = 0;
+  params.lockAchieved = false;
 }
 
 // Fullscreen
