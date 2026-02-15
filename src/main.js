@@ -257,10 +257,39 @@ function animate() {
       effectiveSpeed = params.rampBaseSpeed + (params.rampMaxSpeed - params.rampBaseSpeed) * progress;
     }
 
-    const signA = params.directionA === 'Clockwise' ? -1 : 1;
-    const signB = params.directionB === 'Clockwise' ? -1 : 1;
-    tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
-    tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+    const isSpinLock = params.fusionMode !== 'Unlock';
+
+    if (params.fused && isSpinLock && params.lockAchieved) {
+      // Locked: rotate both together in the mode's direction
+      const sign = params.fusionMode === 'Spin Lock CW' ? -1 : 1;
+      const delta = sign * effectiveSpeed * deltaTime;
+      tetraA.rotation.y += delta;
+      tetraB.rotation.y += delta;
+    } else if (params.fused && isSpinLock && !params.lockAchieved) {
+      // Seeking: rotate independently, check for alignment each frame
+      const signA = params.directionA === 'Clockwise' ? -1 : 1;
+      const signB = params.directionB === 'Clockwise' ? -1 : 1;
+      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
+      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+
+      // Check merkaba alignment
+      const relAngle = tetraA.rotation.y - tetraB.rotation.y;
+      const TWO_PI = 2 * Math.PI;
+      const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
+      const target = ((MERKABA_TARGET_DELTA % TWO_PI) + TWO_PI) % TWO_PI;
+      const diff = Math.abs(normalized - target);
+      if (diff < 0.08 || diff > (TWO_PI - 0.08)) {
+        // Snap to exact alignment: keep A, adjust B
+        tetraB.rotation.y = tetraA.rotation.y - MERKABA_TARGET_DELTA;
+        params.lockAchieved = true;
+      }
+    } else {
+      // Unlock mode or pre-fusion: independent rotation
+      const signA = params.directionA === 'Clockwise' ? -1 : 1;
+      const signB = params.directionB === 'Clockwise' ? -1 : 1;
+      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
+      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+    }
   }
 
   orbitControls.update();
