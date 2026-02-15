@@ -101,18 +101,71 @@ export function buildVertexColors(geometry, originalVerts, colors) {
   }
 }
 
-export function createTetrahedron(color, flipUpsideDown = false) {
-  const geometry = new THREE.TetrahedronGeometry(TETRA_RADIUS, 1);
+/**
+ * Create a subdivided tetrahedron geometry where each face is split into 4
+ * sub-triangles with vertices staying on the flat face plane (not projected
+ * onto a sphere like TetrahedronGeometry with detail > 0 does).
+ */
+function createSubdividedTetraGeometry(flipUpsideDown) {
+  // Start with the base tetrahedron to get face vertices
+  const baseGeo = new THREE.TetrahedronGeometry(TETRA_RADIUS, 0);
+  const alignQuat = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(1, 1, 1).normalize(),
+    new THREE.Vector3(0, 1, 0)
+  );
+  baseGeo.applyQuaternion(alignQuat);
+  if (flipUpsideDown) baseGeo.rotateX(Math.PI);
 
-  const defaultVertex = new THREE.Vector3(1, 1, 1).normalize();
-  const targetUp = new THREE.Vector3(0, 1, 0);
-  const alignQuat = new THREE.Quaternion().setFromUnitVectors(defaultVertex, targetUp);
-  geometry.applyQuaternion(alignQuat);
+  const pos = baseGeo.attributes.position;
+  const verts = [];
+  // 4 faces × 3 vertices = 12 vertices (non-indexed)
+  for (let i = 0; i < pos.count; i += 3) {
+    verts.push([
+      new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)),
+      new THREE.Vector3(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1)),
+      new THREE.Vector3(pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2)),
+    ]);
+  }
+  baseGeo.dispose();
 
-  if (flipUpsideDown) {
-    geometry.rotateX(Math.PI);
+  // Subdivide each face into 4 triangles with flat midpoints
+  const positions = [];
+  const normals = [];
+
+  for (const [v0, v1, v2] of verts) {
+    const m01 = new THREE.Vector3().addVectors(v0, v1).multiplyScalar(0.5);
+    const m02 = new THREE.Vector3().addVectors(v0, v2).multiplyScalar(0.5);
+    const m12 = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5);
+
+    // Face normal (same for all 4 sub-triangles since they're coplanar)
+    const edge1 = new THREE.Vector3().subVectors(v1, v0);
+    const edge2 = new THREE.Vector3().subVectors(v2, v0);
+    const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+    // 4 sub-triangles
+    const subTris = [
+      [v0, m01, m02],   // corner 0
+      [v1, m12, m01],   // corner 1
+      [v2, m02, m12],   // corner 2
+      [m01, m12, m02],  // center
+    ];
+
+    for (const tri of subTris) {
+      for (const v of tri) {
+        positions.push(v.x, v.y, v.z);
+        normals.push(normal.x, normal.y, normal.z);
+      }
+    }
   }
 
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  return geometry;
+}
+
+export function createTetrahedron(color, flipUpsideDown = false) {
+  const geometry = createSubdividedTetraGeometry(flipUpsideDown);
   const originalVerts = computeOriginalVertices(flipUpsideDown);
 
   // Build initial vertex colors (uniform main color)

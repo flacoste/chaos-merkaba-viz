@@ -35,7 +35,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
 
   addTetraFolder('Pointing Up', tetraA,
     'colorA', 'perVertexA', 'vertexColorsA', 'directionA',
-    ['Top', 'Front Left', 'Front Right', 'Back']);
+    ['Top', 'Front Right', 'Front Left', 'Back']);
 
   addTetraFolder('Pointing Down', tetraB,
     'colorB', 'perVertexB', 'vertexColorsB', 'directionB',

@@ -59,9 +59,9 @@ const params = {
   colorA: '#ff0000',
   perVertexA: false,
   vertexColorsA: {
-    top: '#CCFF00',
-    frontLeft: '#FF6600',
-    frontRight: '#4169E1',
+    top: '#d6ff33',
+    frontRight: '#42425c',
+    frontLeft: '#fd8c4e',
     back: '#CC0000',
   },
 
@@ -69,9 +69,9 @@ const params = {
   colorB: '#ffffff',
   perVertexB: false,
   vertexColorsB: {
-    bottom: '#FFD700',
+    bottom: '#e2c72c',
     frontRight: '#800080',
-    frontLeft: '#1C1C2E',
+    frontLeft: '#4169E1',
     back: '#228B22',
   },
 
