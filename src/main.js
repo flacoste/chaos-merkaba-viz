@@ -83,6 +83,17 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pointerStart = null;
 });
 
+// Keyboard: +/- to adjust rotation speed
+window.addEventListener('keydown', (e) => {
+  if (e.key === '+' || e.key === '=') {
+    params.rotationSpeed = Math.min(params.rotationSpeed + 0.1, 5.0);
+    gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+  } else if (e.key === '-' || e.key === '_') {
+    params.rotationSpeed = Math.max(params.rotationSpeed - 0.1, 0.0);
+    gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+  }
+});
+
 // Apply initial materials
 setRenderMode(tetraA, params.renderMode, params.colorA, params.transparency);
 setRenderMode(tetraB, params.renderMode, params.colorB, params.transparency);
