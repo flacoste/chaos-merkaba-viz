@@ -15,16 +15,16 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'autoRotate').name('Auto-Rotate');
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed');
-  rotation.add(params, 'directionA', ['Clockwise', 'Counterclockwise']).name('Direction A (bottom)');
-  rotation.add(params, 'directionB', ['Clockwise', 'Counterclockwise']).name('Direction B (top)');
+  rotation.add(params, 'directionA', ['Clockwise', 'Counterclockwise']).name('Pointing Up');
+  rotation.add(params, 'directionB', ['Clockwise', 'Counterclockwise']).name('Pointing Down');
 
   // Appearance folder
   const appearance = gui.addFolder('Appearance');
   appearance.add(params, 'renderMode', ['Solid', 'Wireframe', 'Glass']).name('Render Mode')
     .onChange(() => applyMaterials(params, tetraA, tetraB));
-  appearance.addColor(params, 'colorA').name('Color A (bottom)')
+  appearance.addColor(params, 'colorA').name('Pointing Up')
     .onChange(() => applyMaterials(params, tetraA, tetraB));
-  appearance.addColor(params, 'colorB').name('Color B (top)')
+  appearance.addColor(params, 'colorB').name('Pointing Down')
     .onChange(() => applyMaterials(params, tetraA, tetraB));
   appearance.add(params, 'transparency', 0.0, 1.0, 0.01).name('Transparency')
     .onChange(() => applyMaterials(params, tetraA, tetraB));
