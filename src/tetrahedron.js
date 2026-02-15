@@ -14,12 +14,14 @@ export function createTetrahedron(color, flipUpsideDown = false) {
   const alignQuat = new THREE.Quaternion().setFromUnitVectors(defaultVertex, targetUp);
   geometry.applyQuaternion(alignQuat);
 
+  // Flip the geometry itself (not the mesh) so both meshes share the same
+  // world-space Y-axis. This keeps Y-rotation direction consistent for both.
+  if (flipUpsideDown) {
+    geometry.rotateX(Math.PI);
+  }
+
   const material = createGlassMaterial(color);
   const mesh = new THREE.Mesh(geometry, material);
-
-  if (flipUpsideDown) {
-    mesh.rotation.x = Math.PI;
-  }
 
   // Store edges for wireframe mode — must use aligned geometry
   const edgesGeometry = new THREE.EdgesGeometry(geometry);
