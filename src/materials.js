@@ -1,23 +1,19 @@
 import * as THREE from 'three';
 
-export function createSolidMaterial(color) {
+export function createSolidMaterial(opacity = 1.0) {
   return new THREE.MeshStandardMaterial({
-    color,
+    color: 0xffffff,
+    vertexColors: true,
     flatShading: true,
-  });
-}
-
-export function createWireframeMaterial(color, opacity = 1.0) {
-  return new THREE.LineBasicMaterial({
-    color,
-    opacity,
     transparent: opacity < 1.0,
+    opacity,
   });
 }
 
-export function createGlassMaterial(color, opacity = 0.5, glassParams = {}) {
+export function createGlassMaterial(opacity = 0.5, glassParams = {}) {
   return new THREE.MeshPhysicalMaterial({
-    color,
+    color: 0xffffff,
+    vertexColors: true,
     transmission: glassParams.transmission ?? 0.5,
     thickness: glassParams.thickness ?? 1.0,
     roughness: glassParams.roughness ?? 0.35,
