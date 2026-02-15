@@ -160,13 +160,15 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pointerStart = null;
 });
 
-// Keyboard: +/- to adjust rotation speed
+// Keyboard: +/- to adjust rotation speed (cancels ramp)
 window.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') {
+    params.rampStartTime = null; // cancel ramp
     params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
     saveSettings();
   } else if (e.key === '-' || e.key === '_') {
+    params.rampStartTime = null; // cancel ramp
     params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
     saveSettings();
