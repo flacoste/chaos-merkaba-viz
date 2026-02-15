@@ -34,7 +34,6 @@ scene.add(tetraA);
 scene.add(tetraB);
 
 const STORAGE_KEY = 'tetraviz-settings';
-const TRANSIENT_KEYS = ['currentSeparation', 'fused'];
 
 const DEFAULTS = Object.freeze({
   // Transform
@@ -225,4 +224,4 @@ function animate() {
 }
 animate();
 
-export { params, DEFAULTS, saveSettings, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
+export { params, DEFAULTS, STORAGE_KEY, saveSettings, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };

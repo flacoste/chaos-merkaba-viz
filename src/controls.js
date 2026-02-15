@@ -1,6 +1,6 @@
 import GUI from 'lil-gui';
 import { setRenderMode, updateMeshColors } from './tetrahedron.js';
-import { saveSettings, DEFAULTS } from './main.js';
+import { saveSettings, DEFAULTS, STORAGE_KEY } from './main.js';
 
 export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, resetFn, fullscreenFn) {
   const gui = new GUI({ title: 'Tetraviz' });
@@ -67,7 +67,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   gui.add({ restart: resetFn }, 'restart').name('Restart');
   gui.add({
     resetDefaults: () => {
-      localStorage.removeItem('tetraviz-settings');
+      localStorage.removeItem(STORAGE_KEY);
       // Reset all persistent keys to defaults
       for (const key of Object.keys(DEFAULTS)) {
         if (key === 'vertexColorsA' || key === 'vertexColorsB') {
