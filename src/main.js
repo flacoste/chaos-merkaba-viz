@@ -139,6 +139,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (dx * dx + dy * dy < 9) {
     params.autoRotate = !params.autoRotate;
     gui.controllersRecursive().find(c => c.property === 'autoRotate')?.updateDisplay();
+    saveSettings();
   }
   pointerStart = null;
 });
@@ -148,9 +149,11 @@ window.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') {
     params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+    saveSettings();
   } else if (e.key === '-' || e.key === '_') {
     params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
+    saveSettings();
   }
 });
 
