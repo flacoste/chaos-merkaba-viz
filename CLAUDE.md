@@ -17,6 +17,32 @@ When the brainstorming skill produces a design doc, do NOT commit it to main. In
 
 The branch name should be descriptive of the feature (e.g., `add-rotation-controls`, `fix-camera-alignment`).
 
+### Parallel Feature Work (worktrees)
+
+When multiple features need to be developed simultaneously (e.g., two brainstorms running in parallel), use git worktrees to avoid branch conflicts. A single directory can only have one branch checked out at a time, so parallel work requires separate worktrees.
+
+Instead of `git checkout -b`, create a worktree:
+
+```bash
+git worktree add ../<repo>-<feature-name> -b <feature-branch-name>
+```
+
+For example, from `/Users/francis/src/tetraviz`:
+```bash
+git worktree add ../tetraviz-rotation-controls -b add-rotation-controls
+```
+
+Then do all work (design doc, plan, implementation) inside that worktree directory. When merging back, return to the main worktree:
+
+```bash
+cd /Users/francis/src/tetraviz
+git merge --no-ff <feature-branch> -m "<conceptual description>"
+git branch -d <feature-branch>
+git worktree remove ../<repo>-<feature-name>
+```
+
+Use the `superpowers:using-git-worktrees` skill to handle worktree creation with safety checks.
+
 ### Commits During Work
 
 Commit iteratively to the feature branch as work proceeds. This is the expected behavior — frequent, small commits on the branch are good.
