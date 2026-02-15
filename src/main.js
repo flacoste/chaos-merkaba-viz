@@ -41,10 +41,10 @@ scene.add(tetraB);
 const backAngleA = Math.atan2(tetraA.userData.originalVerts[3].z, tetraA.userData.originalVerts[3].x);
 const backAngleB = Math.atan2(tetraB.userData.originalVerts[3].z, tetraB.userData.originalVerts[3].x);
 const TWO_PI = 2 * Math.PI;
-// Stella Octangula: corresponding vertices at same XZ angle (compact 3D star)
-const STELLA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
-// Merkaba: corresponding vertices 180° apart (flat Star of David)
-const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_PI) % TWO_PI;
+// Stella Octangula: corresponding vertices 180° apart (compact 3D star, dual cube corners)
+const STELLA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_PI) % TWO_PI;
+// Merkaba: corresponding vertices at same XZ angle (flat Star of David)
+const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
 const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees, scaled up with speed
 
 const STORAGE_KEY = 'tetraviz-settings';
