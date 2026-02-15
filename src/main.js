@@ -88,6 +88,7 @@ function loadSettings() {
     if (raw) {
       const saved = JSON.parse(raw);
       for (const key of Object.keys(saved)) {
+        if (!(key in DEFAULTS)) continue;
         if (key === 'vertexColorsA' || key === 'vertexColorsB') {
           Object.assign(base[key], saved[key]);
         } else {
@@ -157,8 +158,14 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Apply initial materials
-setRenderMode(tetraA, params.renderMode, params.transparency);
-setRenderMode(tetraB, params.renderMode, params.transparency);
+const initialGlass = {
+  transmission: params.transmission,
+  thickness: params.thickness,
+  roughness: params.roughness,
+  ior: params.ior,
+};
+setRenderMode(tetraA, params.renderMode, params.transparency, initialGlass);
+setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
 
 // Reset function
 function reset() {
