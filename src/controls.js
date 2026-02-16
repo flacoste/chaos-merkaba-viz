@@ -14,8 +14,10 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'autoRotate').name('Auto-Rotate').onChange(saveSettings);
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed').onChange(saveSettings);
-  rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode').onChange(saveSettings);
-  rotation.add(params, 'lockShape', ['Stella Octangula', 'Merkaba']).name('Lock Shape').onChange(saveSettings);
+  rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode')
+    .onChange(() => { params.lockAchieved = false; saveSettings(); });
+  rotation.add(params, 'lockShape', ['Stella Octangula', 'Merkaba']).name('Lock Shape')
+    .onChange(() => { params.lockAchieved = false; saveSettings(); });
   rotation.add(params, 'rampDuration', 0.0, 5.0, 0.1).name('Ramp Duration (min)').onChange(saveSettings);
   rotation.add(params, 'rampMaxSpeed', 0.0, 20.0, 0.1).name('Ramp Max Speed').onChange(saveSettings);
 
