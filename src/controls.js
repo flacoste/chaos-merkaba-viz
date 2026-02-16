@@ -1,6 +1,10 @@
 import GUI from 'lil-gui';
 import { setRenderMode, updateMeshColors } from './tetrahedron.js';
-import { saveSettings, DEFAULTS, STORAGE_KEY } from './main.js';
+import {
+  saveSettings, DEFAULTS, STORAGE_KEY,
+  rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
+  setChaosSphereRenderMode, updateChaosSphereColors,
+} from './main.js';
 
 export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, resetFn, fullscreenFn) {
   const gui = new GUI({ title: 'Tetraviz' });
@@ -17,9 +21,18 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode')
     .onChange(() => { params.lockAchieved = false; saveSettings(); });
   rotation.add(params, 'lockShape', ['Stella Octangula', 'Merkaba']).name('Lock Shape')
-    .onChange(() => { params.lockAchieved = false; saveSettings(); });
+    .onChange(() => { params.lockAchieved = false; rebuildChaosSphere(); saveSettings(); });
   rotation.add(params, 'rampDuration', 0.0, 5.0, 0.1).name('Ramp Duration (min)').onChange(saveSettings);
   rotation.add(params, 'rampMaxSpeed', 0.0, 20.0, 0.1).name('Ramp Max Speed').onChange(saveSettings);
+
+  // Chaos Sphere folder
+  const chaosSphereFolder = gui.addFolder('Chaos Sphere');
+  chaosSphereFolder.add(params, 'morphEnabled').name('Morph Enabled').onChange(saveSettings);
+  const rebuildOnChange = () => { rebuildChaosSphere(); saveSettings(); };
+  chaosSphereFolder.add(params, 'chaosScale', 0.5, 3.0, 0.01).name('Scale').onChange(rebuildOnChange);
+  chaosSphereFolder.add(params, 'sphereRadius', 0.05, 0.5, 0.01).name('Sphere Radius').onChange(rebuildOnChange);
+  chaosSphereFolder.add(params, 'rayRadius', 0.01, 0.15, 0.01).name('Ray Radius').onChange(rebuildOnChange);
+  chaosSphereFolder.add(params, 'coneRadius', 0.02, 0.3, 0.01).name('Cone Radius').onChange(rebuildOnChange);
 
   // Per-tetrahedron folder builder
   function addTetraFolder(name, mesh, colorKey, perVertexKey, vcKey, dirKey, labels) {
@@ -87,6 +100,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
       // Reapply materials and colors
       applyMaterials(params, tetraA, tetraB);
       applyColors(params, tetraA, tetraB);
+      rebuildChaosSphere();
       updateGlassVisibility();
       // Also restart the animation
       resetFn();
@@ -110,9 +124,21 @@ function applyMaterials(params, tetraA, tetraB) {
   const gp = glassParamsFrom(params);
   setRenderMode(tetraA, params.renderMode, params.transparency, gp);
   setRenderMode(tetraB, params.renderMode, params.transparency, gp);
+  // Update chaos sphere materials
+  const group = getChaosSphereGroup();
+  if (group) {
+    setChaosSphereRenderMode(group, params.renderMode, params.transparency, gp);
+  }
 }
 
 function applyColors(params, tetraA, tetraB) {
   updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
   updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
+  // Update chaos sphere colors
+  const group = getChaosSphereGroup();
+  if (group) {
+    const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
+    const colorsB = getTetraColors(params.colorB, params.perVertexB, params.vertexColorsB);
+    updateChaosSphereColors(group, colorsA, colorsB);
+  }
 }
