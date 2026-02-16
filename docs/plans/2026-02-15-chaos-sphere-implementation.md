@@ -692,3 +692,54 @@ git commit -m "fix: chaos sphere visual polish"
 - **Glass material opacity**: Setting `opacity: 0` on glass material with `transmission > 0` may still show glass refraction. Use `mesh.visible = false` to fully hide.
 - **Module export of `let` variable**: `chaosSphereGroup` is reassigned by `rebuildChaosSphere`. Use `getChaosSphereGroup()` getter to always get the current reference.
 - **Geometry disposal**: Always dispose old geometries/materials before rebuilding to prevent GPU memory leaks.
+
+---
+
+## Implementation Notes
+
+The plan above was the original specification. Below documents what changed during implementation and the lessons learned. See also the updated design doc for the canonical current state.
+
+### Deviations from Plan
+
+1. **`TETRA_RADIUS` exported instead of duplicated** (Task 2): The plan had `const TETRA_RADIUS = 1; // Must match tetrahedron.js` in chaos-sphere.js. Code review caught this as a maintenance risk. Fix: exported `TETRA_RADIUS` from tetrahedron.js and imported it. This changed tetrahedron.js (which the plan said would have no changes).
+
+2. **Color buffer reuse** (Task 2): The plan's `paintUniformColor` and `paintSphereColors` always allocated new `Float32Array` and called `setAttribute`. Code review recommended reusing existing buffers (matching the pattern in `buildVertexColors`). Fix: check for existing `color` attribute, write into `.array`, set `needsUpdate = true`. This also made the redundant `needsUpdate` calls in `updateChaosSphereColors` unnecessary — they were removed.
+
+3. **`computeEffectiveSpeed()` extracted** (Task 5): The plan placed the morph block inside the `if (params.autoRotate)` block to access `effectiveSpeed`. During implementation, the morph block was placed AFTER the autoRotate block (so it runs unconditionally), requiring `effectiveSpeed` to be recomputed. Code review caught the duplication. Fix: extracted `computeEffectiveSpeed()` as a local function inside `animate()`, used by both the rotation block and the morph block.
+
+4. **`autoRotate` guard added then removed** (Task 5 → post-Task 7): Code review recommended adding `params.autoRotate` as a morph prerequisite to prevent the chaos sphere from appearing while rotation is frozen. This was implemented. User feedback then requested the OPPOSITE behavior — chaos sphere should persist and freeze when rotation is paused. The guard was removed.
+
+5. **`chaosScale` onChange simplified** (Task 4 → post-Task 7): The plan had `chaosScale` triggering `rebuildOnChange` (full geometry rebuild). Code review noted that `chaosScale` only affects `group.scale` which is set per-frame in the animation loop — no rebuild needed. Fix: changed to `saveSettings` only.
+
+6. **Glass `transparent` flag preservation** (Task 5): The plan's opacity restore code set `transparent = baseOpacity < 1.0`. For glass materials with `transmission > 0`, setting `transparent = false` causes rendering artifacts. Fix: always keep `transparent = true` when `renderMode === 'Glass'`.
+
+### Post-Plan Changes (User Feedback)
+
+7. **Sphere-ray gap fix**: At full morph, a visible gap appeared between the sphere surface and ray bases due to SphereGeometry tessellation. Fix: position ray bases with a 0.03 overlap inside the sphere surface.
+
+8. **Uniform ray scaling**: The plan only scaled cylinder Y (length). This left cylinders at full radius from the start, looking unnatural during early morph. Fix: scale all axes uniformly (`setScalar(scale)`) so both radius and length grow together.
+
+9. **Morph scale offset (40% minimum)**: Starting from scale 0 made the chaos sphere look tiny inside the still-visible tetrahedra at early morph progress. Fix: remap scale to `0.4 + 0.6 * progress` so the chaos sphere starts at 40% of final size.
+
+10. **Transparency setting removed**: The user requested removing the transparency slider entirely. All `params.transparency` references replaced with `0`, morph opacity code simplified.
+
+11. **Default value changes**: Sphere radius 0.33 → 0.45. Vertex color defaults swapped: tetra A's back/frontRight swapped with tetra B's back/frontRight.
+
+### Commit History
+
+```
+b1097a1 fix: start chaos sphere at 40% scale for smoother morph transition
+d73e023 chore: swap back/frontRight vertex colors, update sphere radius, remove transparency
+dc4bf1c fix: scale ray radius during morph and close sphere-ray gap
+f0aa3ae fix: keep chaos sphere visible when auto-rotate is paused
+a2cc8da fix: avoid unnecessary rebuild on scale change and preserve glass transparency
+74b2f69 fix: extract speed computation helper and add autoRotate morph guard
+2df3561 feat: add morph progress calculation and animation to loop
+5c6be4b feat: add chaos sphere controls folder
+bd251f9 feat: wire chaos sphere into scene lifecycle
+a202865 fix: export TETRA_RADIUS and reuse color buffers in chaos sphere
+524e8ee feat: add chaos-sphere.js geometry building module
+ff312f8 feat: add chaos sphere defaults to settings
+5a25e56 docs: add chaos sphere implementation plan
+539abd3 docs: add chaos sphere morph design
+```
