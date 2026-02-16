@@ -1,20 +1,24 @@
 import * as THREE from 'three';
 import { createSolidMaterial, createGlassMaterial } from './materials.js';
-
-const TETRA_RADIUS = 1; // Must match tetrahedron.js
+import { TETRA_RADIUS } from './tetrahedron.js';
 
 /**
  * Paint vertex colors on a geometry with a single uniform color.
  */
 function paintUniformColor(geometry, color) {
   const count = geometry.attributes.position.count;
-  const colors = new Float32Array(count * 3);
+  const existing = geometry.attributes.color;
+  const colors = existing ? existing.array : new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     colors[i * 3] = color.r;
     colors[i * 3 + 1] = color.g;
     colors[i * 3 + 2] = color.b;
   }
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  if (existing) {
+    existing.needsUpdate = true;
+  } else {
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  }
 }
 
 /**
@@ -23,7 +27,8 @@ function paintUniformColor(geometry, color) {
  */
 function paintSphereColors(geometry, allColors) {
   const count = geometry.attributes.position.count;
-  const colors = new Float32Array(count * 3);
+  const existing = geometry.attributes.color;
+  const colors = existing ? existing.array : new Float32Array(count * 3);
   const n = allColors.length;
   for (let i = 0; i < count; i++) {
     const c = allColors[i % n];
@@ -31,7 +36,11 @@ function paintSphereColors(geometry, allColors) {
     colors[i * 3 + 1] = c.g;
     colors[i * 3 + 2] = c.b;
   }
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  if (existing) {
+    existing.needsUpdate = true;
+  } else {
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  }
 }
 
 /**
@@ -170,18 +179,13 @@ export function updateChaosSphereColors(group, colorsA, colorsB) {
   const { sphereMesh, rays } = group.userData;
   const allColors = [...colorsA, ...colorsB];
 
-  // Repaint sphere
   paintSphereColors(sphereMesh.geometry, allColors);
-  sphereMesh.geometry.attributes.color.needsUpdate = true;
 
-  // Repaint rays
   for (let i = 0; i < 8; i++) {
     const color = i < 4 ? colorsA[i] : colorsB[i - 4];
     const ray = rays[i];
     paintUniformColor(ray.cylMesh.geometry, color);
-    ray.cylMesh.geometry.attributes.color.needsUpdate = true;
     paintUniformColor(ray.coneMesh.geometry, color);
-    ray.coneMesh.geometry.attributes.color.needsUpdate = true;
   }
 }
 

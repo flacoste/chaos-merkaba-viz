@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createSolidMaterial, createGlassMaterial } from './materials.js';
 
-const TETRA_RADIUS = 1;
+export const TETRA_RADIUS = 1;
 
 /**
  * Compute the 4 original vertex positions of the tetrahedron.
