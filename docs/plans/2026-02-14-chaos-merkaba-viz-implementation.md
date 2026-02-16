@@ -8,7 +8,7 @@
 
 **Tech Stack:** Three.js, lil-gui, Vite, vanilla JS
 
-**Design doc:** `docs/plans/2026-02-14-tetraviz-design.md`
+**Design doc:** `docs/plans/2026-02-14-chaos-merkaba-viz-design.md`
 
 ---
 
@@ -653,7 +653,7 @@ Expected: Preview server shows the working app from the built files.
 
 ```bash
 git add -A
-git commit -m "feat: polish and verify complete tetraviz app"
+git commit -m "feat: polish and verify complete chaos-merkaba-viz app"
 ```
 
 ---

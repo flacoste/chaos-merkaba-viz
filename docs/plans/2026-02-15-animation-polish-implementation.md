@@ -172,7 +172,7 @@ In DEFAULTS, change:
 
 **Step 2: Verify**
 
-Clear localStorage (`localStorage.removeItem('tetraviz-settings')`) and reload. Confirm:
+Clear localStorage (`localStorage.removeItem('chaos-merkaba-viz-settings')`) and reload. Confirm:
 - Ramp Duration slider shows 2.0
 - Morph Enabled checkbox is checked
 - After fusion + lock, speed ramps over 2 minutes and morph appears at 80%

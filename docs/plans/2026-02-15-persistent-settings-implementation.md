@@ -32,7 +32,7 @@ const params = {
 With:
 
 ```js
-const STORAGE_KEY = 'tetraviz-settings';
+const STORAGE_KEY = 'chaos-merkaba-viz-settings';
 const TRANSIENT_KEYS = ['currentSeparation', 'fused'];
 
 const DEFAULTS = Object.freeze({
@@ -211,7 +211,7 @@ const glassOnChange = () => { applyMaterials(params, tetraA, tetraB); saveSettin
 
 Run: `npm run dev`
 
-Open browser. Change a setting (e.g., scale slider). Open DevTools > Application > Local Storage. Verify `tetraviz-settings` key exists with JSON containing the updated value. Refresh the page — the setting should persist.
+Open browser. Change a setting (e.g., scale slider). Open DevTools > Application > Local Storage. Verify `chaos-merkaba-viz-settings` key exists with JSON containing the updated value. Refresh the page — the setting should persist.
 
 **Step 4: Commit**
 
@@ -257,7 +257,7 @@ After the Restart button and before the Fullscreen button, add:
 ```js
 gui.add({
   resetDefaults: () => {
-    localStorage.removeItem('tetraviz-settings');
+    localStorage.removeItem('chaos-merkaba-viz-settings');
     // Reset all persistent keys to defaults
     for (const key of Object.keys(DEFAULTS)) {
       if (key === 'vertexColorsA' || key === 'vertexColorsB') {

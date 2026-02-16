@@ -27,15 +27,15 @@ Instead of `git checkout -b`, create a worktree:
 git worktree add ../<repo>-<feature-name> -b <feature-branch-name>
 ```
 
-For example, from `/Users/francis/src/tetraviz`:
+For example, from `/Users/francis/src/chaos-merkaba-viz`:
 ```bash
-git worktree add ../tetraviz-rotation-controls -b add-rotation-controls
+git worktree add ../chaos-merkaba-viz-rotation-controls -b add-rotation-controls
 ```
 
 Then do all work (design doc, plan, implementation) inside that worktree directory. When merging back, return to the main worktree:
 
 ```bash
-cd /Users/francis/src/tetraviz
+cd /Users/francis/src/chaos-merkaba-viz
 git merge --no-ff <feature-branch> -m "<conceptual description>"
 git branch -d <feature-branch>
 git worktree remove ../<repo>-<feature-name>

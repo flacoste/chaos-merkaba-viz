@@ -1,4 +1,4 @@
-# Tetraviz Design Document
+# Chaos Merkaba Viz Design Document
 
 ## Purpose
 
@@ -14,7 +14,7 @@ A meditative, artistic 3D visualization of two regular tetrahedra that approach 
 ## Project Structure
 
 ```
-tetraviz/
+chaos-merkaba-viz/
 ├── index.html
 ├── src/
 │   ├── main.js           # App bootstrap, scene setup, animation loop

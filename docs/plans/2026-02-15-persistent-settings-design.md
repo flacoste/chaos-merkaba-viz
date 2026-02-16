@@ -13,7 +13,7 @@ Approach 1: Persist at the params level. Store the entire params object (minus t
 - Extract current hardcoded param values into a frozen `DEFAULTS` constant in `main.js`.
 - Persistent keys: everything in params except `currentSeparation` and `fused` (transient animation state).
 - On load: read localStorage, parse JSON, shallow-merge saved values into a copy of DEFAULTS. Nested objects (`vertexColorsA`, `vertexColorsB`) get their own merge so new default keys are picked up.
-- localStorage key: `"tetraviz-settings"`
+- localStorage key: `"chaos-merkaba-viz-settings"`
 - Format: JSON string of the persistable subset of params.
 
 ## Controls Changes

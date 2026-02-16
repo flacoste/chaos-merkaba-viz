@@ -87,7 +87,7 @@ function getTetraColors(mainColor, perVertex, vertexColorsObj) {
   return [c, c, c, c];
 }
 
-const STORAGE_KEY = 'tetraviz-settings';
+const STORAGE_KEY = 'chaos-merkaba-viz-settings';
 
 const DEFAULTS = Object.freeze({
   // Transform
