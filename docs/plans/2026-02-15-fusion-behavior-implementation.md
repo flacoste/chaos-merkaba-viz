@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add configurable post-fusion behavior (unlock / spin-lock CW / spin-lock CCW) with an independent speed ramp that gradually increases rotation after fusion.
+**Goal:** Add configurable post-fusion behavior (unlock / spin-lock CW / spin-lock CCW) with two lock shapes (Stella Octangula / Merkaba) and an independent speed ramp that gradually increases rotation after fusion.
 
-**Architecture:** New persistent settings (`fusionMode`, `rampDuration`, `rampMaxSpeed`) are added to `DEFAULTS` and exposed via lil-gui in the Rotation folder. The animation loop is refactored to compute an effective speed (accounting for ramp) and handle three rotation states: independent (unlock/pre-fusion), seeking (spin-lock, waiting for alignment), and locked (spin-lock, aligned). Alignment detection uses the XZ-plane angle of the front-right vertex to determine when corresponding vertices are directly opposite.
+**Architecture:** New persistent settings (`fusionMode`, `lockShape`, `rampDuration`, `rampMaxSpeed`) are added to `DEFAULTS` and exposed via lil-gui in the Rotation folder. The animation loop is refactored to compute an effective speed (accounting for ramp) and handle three rotation states: independent (unlock/pre-fusion), seeking (spin-lock, waiting for alignment), and locked (spin-lock, aligned). Alignment detection uses pre-computed target angles derived from the "back" vertex (index 3) of each tetrahedron.
 
 **Tech Stack:** Three.js, lil-gui, vanilla JS (ES modules), Vite
 
@@ -353,3 +353,43 @@ Test each combination in the browser:
 git add -A
 git commit -m "fix: address integration issues"
 ```
+
+---
+
+## Implementation Notes
+
+_Added post-implementation to capture deviations from the original plan and lessons learned._
+
+### Scope additions during implementation
+
+The original plan had a single lock shape (called "merkaba"). During user testing, two lock shapes were added:
+
+- **`lockShape`** setting: Dropdown with "Stella Octangula" (compact 3D star, vertices 180° apart) and "Merkaba" (flat Star of David, vertices at same XZ angle)
+- **`fuseTime`** transient state: Timestamp for 3-second fallback snap when same-direction spinning prevents natural alignment
+
+### Alignment math — bugs and fixes
+
+The alignment target computation went through 4 iterations due to subtle geometry issues:
+
+1. **Original formula (`π - 2α`)**: Assumed B's vertex angle is `-α` (mirror of A's). Wrong because atan2 sorting reverses for the flipped tetrahedron, so B[1] is a different physical vertex than A[1].
+
+2. **Both-vertex formula, mod 2π/3**: Used both tetrahedra's actual angles but applied mod 2π/3 (3-fold symmetry). This matched any of 3 rotational variants, but only 1 has correct named-vertex pairing (back↔back).
+
+3. **Both-vertex formula, mod 2π, wrong sign**: Switched to mod 2π for unique pairing but used `alphaB - alphaA`. The correct formula is `alphaA - alphaB` because Three.js Y-rotation gives `effectiveAngle = origAngle - rotation.y` (subtraction).
+
+4. **Final correct formula**: `STELLA_TARGET = (backAngleA - backAngleB - π) mod 2π`, `MERKABA_TARGET = (backAngleA - backAngleB) mod 2π`. Uses "back" vertex (index 3) for semantic clarity.
+
+### Key lessons for future plans
+
+- **Always derive rotation formulas from `effectiveAngle = origAngle - rotation.y`** (Three.js convention)
+- **The flipped tetrahedron's atan2 sort order is reversed** — `originalVerts[i]` for A and B are NOT corresponding physical vertices
+- **Stella Octangula = vertices 180° apart** (opposite cube corners), not same angle
+- **Transient state must be invalidated** when persistent settings change (e.g., `lockAchieved` reset on `fusionMode`/`lockShape` change)
+- **onChange handlers in controls.js** are the right place for transient state resets
+
+### Additional edge cases handled
+
+- Same-direction seeking deadlock → 3-second fallback force-snap using `fuseTime`
+- Downward ramp (`rampMaxSpeed < rampBaseSpeed`) → clamped with `Math.max`
+- Adaptive alignment tolerance → scales with `effectiveSpeed * deltaTime` to avoid misses at high RPM
+- Changing lock shape or fusion mode while locked → resets `lockAchieved`, triggers re-seeking
