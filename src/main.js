@@ -171,6 +171,9 @@ function loadSettings() {
   base.rampBaseSpeed = 0;
   base.lockAchieved = false;
   base.fuseTime = null;
+  base.paused = false;
+  base.pausedDuration = 0;
+  base.pauseStartTime = null;
   return base;
 }
 
@@ -253,6 +256,9 @@ function reset() {
   params.rampBaseSpeed = 0;
   params.lockAchieved = false;
   params.fuseTime = null;
+  params.paused = false;
+  params.pausedDuration = 0;
+  params.pauseStartTime = null;
   // Hide chaos sphere
   if (chaosSphereGroup) chaosSphereGroup.visible = false;
 }
@@ -291,7 +297,7 @@ function animate() {
   function computeEffectiveSpeed() {
     let speed = params.rotationSpeed;
     if (params.rampStartTime !== null) {
-      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const elapsedSec = (now - params.rampStartTime - params.pausedDuration) / 1000;
       const durationSec = params.rampDuration * 60;
       const progress = Math.min(elapsedSec / durationSec, 1.0);
       const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
@@ -300,29 +306,29 @@ function animate() {
     return speed;
   }
 
-  // Scale
-  tetraA.scale.setScalar(params.scale);
-  tetraB.scale.setScalar(params.scale);
+  if (!params.paused) {
+    // Scale
+    tetraA.scale.setScalar(params.scale);
+    tetraB.scale.setScalar(params.scale);
 
-  // Approach
-  if (!params.fused) {
-    params.currentSeparation -= params.approachSpeed * deltaTime;
-    if (params.currentSeparation <= 0) {
-      params.currentSeparation = 0;
-      params.fused = true;
-      params.fuseTime = now;
-      // Activate speed ramp if duration > 0
-      if (params.rampDuration > 0) {
-        params.rampStartTime = now;
-        params.rampBaseSpeed = params.rotationSpeed;
+    // Approach
+    if (!params.fused) {
+      params.currentSeparation -= params.approachSpeed * deltaTime;
+      if (params.currentSeparation <= 0) {
+        params.currentSeparation = 0;
+        params.fused = true;
+        params.fuseTime = now;
+        // Activate speed ramp if duration > 0
+        if (params.rampDuration > 0) {
+          params.rampStartTime = now;
+          params.rampBaseSpeed = params.rotationSpeed;
+        }
       }
     }
-  }
-  tetraA.position.y = -params.currentSeparation / 2;
-  tetraB.position.y = params.currentSeparation / 2;
+    tetraA.position.y = -params.currentSeparation / 2;
+    tetraB.position.y = params.currentSeparation / 2;
 
-  // Rotation (Y-axis only)
-  if (params.autoRotate) {
+    // Rotation (Y-axis only)
     const effectiveSpeed = computeEffectiveSpeed();
 
     const isSpinLock = params.fusionMode !== 'Unlock';
@@ -364,49 +370,49 @@ function animate() {
       tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
       tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
     }
-  }
 
-  // Chaos sphere morph
-  if (chaosSphereGroup) {
-    let morphProgress = 0;
-    if (
-      params.morphEnabled &&
-      params.fused &&
-      params.lockAchieved &&
-      params.fusionMode !== 'Unlock' &&
-      params.rampStartTime !== null &&
-      params.rampMaxSpeed > 0
-    ) {
-      const speed = computeEffectiveSpeed();
-      morphProgress = Math.max(0, Math.min(1,
-        (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
-      ));
-    }
+    // Chaos sphere morph
+    if (chaosSphereGroup) {
+      let morphProgress = 0;
+      if (
+        params.morphEnabled &&
+        params.fused &&
+        params.lockAchieved &&
+        params.fusionMode !== 'Unlock' &&
+        params.rampStartTime !== null &&
+        params.rampMaxSpeed > 0
+      ) {
+        const speed = computeEffectiveSpeed();
+        morphProgress = Math.max(0, Math.min(1,
+          (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
+        ));
+      }
 
-    setMorphProgress(chaosSphereGroup, morphProgress);
+      setMorphProgress(chaosSphereGroup, morphProgress);
 
-    if (morphProgress > 0) {
-      // Scale: combine scene scale with chaos sphere scale
-      chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
-      // Sync rotation with tetra A (the reference frame for lock alignment)
-      chaosSphereGroup.rotation.y = tetraA.rotation.y;
-      // Fade tetrahedra opacity
-      const tetraOpacity = 1 - morphProgress;
-      tetraA.material.opacity = tetraOpacity;
-      tetraA.material.transparent = true;
-      tetraB.material.opacity = tetraOpacity;
-      tetraB.material.transparent = true;
-      tetraA.visible = morphProgress < 1;
-      tetraB.visible = morphProgress < 1;
-    } else {
-      // Restore tetra opacity when morph inactive
-      const isGlass = params.renderMode === 'Glass';
-      tetraA.material.opacity = 1;
-      tetraA.material.transparent = isGlass;
-      tetraA.visible = true;
-      tetraB.material.opacity = 1;
-      tetraB.material.transparent = isGlass;
-      tetraB.visible = true;
+      if (morphProgress > 0) {
+        // Scale: combine scene scale with chaos sphere scale
+        chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
+        // Sync rotation with tetra A (the reference frame for lock alignment)
+        chaosSphereGroup.rotation.y = tetraA.rotation.y;
+        // Fade tetrahedra opacity
+        const tetraOpacity = 1 - morphProgress;
+        tetraA.material.opacity = tetraOpacity;
+        tetraA.material.transparent = true;
+        tetraB.material.opacity = tetraOpacity;
+        tetraB.material.transparent = true;
+        tetraA.visible = morphProgress < 1;
+        tetraB.visible = morphProgress < 1;
+      } else {
+        // Restore tetra opacity when morph inactive
+        const isGlass = params.renderMode === 'Glass';
+        tetraA.material.opacity = 1;
+        tetraA.material.transparent = isGlass;
+        tetraA.visible = true;
+        tetraB.material.opacity = 1;
+        tetraB.material.transparent = isGlass;
+        tetraB.visible = true;
+      }
     }
   }
 
