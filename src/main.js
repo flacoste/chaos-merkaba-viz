@@ -33,6 +33,20 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
+// Lock shape alignment targets.
+// Three.js Y-rotation: effectiveAngle = origAngle - rotation.y
+// Target = value of (rotA - rotB) mod 2π that aligns corresponding named vertices.
+// Uses "back" vertex (index 3) as reference; result is identical for any base
+// vertex pair due to 3-fold symmetry.
+const backAngleA = Math.atan2(tetraA.userData.originalVerts[3].z, tetraA.userData.originalVerts[3].x);
+const backAngleB = Math.atan2(tetraB.userData.originalVerts[3].z, tetraB.userData.originalVerts[3].x);
+const TWO_PI = 2 * Math.PI;
+// Stella Octangula: corresponding vertices 180° apart (compact 3D star, dual cube corners)
+const STELLA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_PI) % TWO_PI;
+// Merkaba: corresponding vertices at same XZ angle (flat Star of David)
+const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
+const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees, scaled up with speed
+
 const STORAGE_KEY = 'tetraviz-settings';
 
 const DEFAULTS = Object.freeze({
@@ -45,6 +59,12 @@ const DEFAULTS = Object.freeze({
   rotationSpeed: 0.5,
   directionA: 'Counterclockwise',
   directionB: 'Clockwise',
+
+  // Fusion behavior
+  fusionMode: 'Unlock',       // 'Unlock' | 'Spin Lock CW' | 'Spin Lock CCW'
+  lockShape: 'Stella Octangula', // 'Stella Octangula' | 'Merkaba'
+  rampDuration: 0.0,          // minutes to reach max speed (0 = disabled)
+  rampMaxSpeed: 10.0,         // target speed for ramp (0-20)
 
   // Appearance
   renderMode: 'Glass',
@@ -102,6 +122,10 @@ function loadSettings() {
   // Always add transient state fresh
   base.currentSeparation = MAX_SEPARATION;
   base.fused = false;
+  base.rampStartTime = null;
+  base.rampBaseSpeed = 0;
+  base.lockAchieved = false;
+  base.fuseTime = null;
   return base;
 }
 
@@ -144,13 +168,15 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pointerStart = null;
 });
 
-// Keyboard: +/- to adjust rotation speed
+// Keyboard: +/- to adjust rotation speed (cancels ramp)
 window.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') {
+    params.rampStartTime = null; // cancel ramp
     params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
     saveSettings();
   } else if (e.key === '-' || e.key === '_') {
+    params.rampStartTime = null; // cancel ramp
     params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
     gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
     saveSettings();
@@ -175,6 +201,10 @@ updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB)
 function reset() {
   params.currentSeparation = MAX_SEPARATION;
   params.fused = false;
+  params.rampStartTime = null;
+  params.rampBaseSpeed = 0;
+  params.lockAchieved = false;
+  params.fuseTime = null;
 }
 
 // Fullscreen
@@ -217,6 +247,12 @@ function animate() {
     if (params.currentSeparation <= 0) {
       params.currentSeparation = 0;
       params.fused = true;
+      params.fuseTime = now;
+      // Activate speed ramp if duration > 0
+      if (params.rampDuration > 0) {
+        params.rampStartTime = now;
+        params.rampBaseSpeed = params.rotationSpeed;
+      }
     }
   }
   tetraA.position.y = -params.currentSeparation / 2;
@@ -224,10 +260,55 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
+    // Compute effective speed (with ramp if active)
+    let effectiveSpeed = params.rotationSpeed;
+    if (params.rampStartTime !== null) {
+      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const durationSec = params.rampDuration * 60;
+      const progress = Math.min(elapsedSec / durationSec, 1.0);
+      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
+      effectiveSpeed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
+    }
+
+    const isSpinLock = params.fusionMode !== 'Unlock';
     const signA = params.directionA === 'Clockwise' ? -1 : 1;
     const signB = params.directionB === 'Clockwise' ? -1 : 1;
-    tetraA.rotation.y += signA * params.rotationSpeed * deltaTime;
-    tetraB.rotation.y += signB * params.rotationSpeed * deltaTime;
+
+    if (params.fused && isSpinLock && params.lockAchieved) {
+      // Locked: rotate both together in the mode's direction
+      const sign = params.fusionMode === 'Spin Lock CW' ? -1 : 1;
+      const delta = sign * effectiveSpeed * deltaTime;
+      tetraA.rotation.y += delta;
+      tetraB.rotation.y += delta;
+    } else if (params.fused && isSpinLock && !params.lockAchieved) {
+      // Seeking: rotate independently, check for alignment each frame
+      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
+      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+
+      // Check alignment (mod 2π — must use full rotation to ensure correct vertex pairing)
+      const target = params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
+      const relAngle = tetraA.rotation.y - tetraB.rotation.y;
+      const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
+      const diff = Math.abs(normalized - target);
+      // Adaptive tolerance: scale with speed so we don't miss at high rpm
+      const frameTolerance = Math.max(ALIGNMENT_TOLERANCE, effectiveSpeed * deltaTime * 1.1);
+      if (diff < frameTolerance || diff > (TWO_PI - frameTolerance)) {
+        // Snap to nearest exact alignment: keep A, adjust B
+        const k = Math.round((relAngle - target) / TWO_PI);
+        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+        params.lockAchieved = true;
+      }
+      // Fallback: force-snap after 3 seconds if relative angle isn't changing
+      if (!params.lockAchieved && params.fuseTime !== null && (now - params.fuseTime) > 3000) {
+        const k = Math.round((relAngle - target) / TWO_PI);
+        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+        params.lockAchieved = true;
+      }
+    } else {
+      // Unlock mode or pre-fusion: independent rotation
+      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
+      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+    }
   }
 
   orbitControls.update();
