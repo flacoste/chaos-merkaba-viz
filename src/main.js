@@ -363,6 +363,59 @@ function animate() {
     }
   }
 
+  // Chaos sphere morph
+  if (chaosSphereGroup) {
+    let morphProgress = 0;
+    if (
+      params.morphEnabled &&
+      params.fused &&
+      params.lockAchieved &&
+      params.fusionMode !== 'Unlock' &&
+      params.rampStartTime !== null &&
+      params.rampMaxSpeed > 0
+    ) {
+      // effectiveSpeed is scoped inside autoRotate block; recompute here
+      let speed = params.rotationSpeed;
+      if (params.rampStartTime !== null) {
+        const elapsedSec = (now - params.rampStartTime) / 1000;
+        const durationSec = params.rampDuration * 60;
+        const progress = Math.min(elapsedSec / durationSec, 1.0);
+        const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
+        speed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
+      }
+      morphProgress = Math.max(0, Math.min(1,
+        (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
+      ));
+    }
+
+    setMorphProgress(chaosSphereGroup, morphProgress);
+
+    if (morphProgress > 0) {
+      // Scale: combine scene scale with chaos sphere scale
+      chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
+      // Sync rotation with tetra A (the reference frame for lock alignment)
+      chaosSphereGroup.rotation.y = tetraA.rotation.y;
+      // Fade tetrahedra opacity
+      const baseOpacity = 1.0 - params.transparency;
+      const tetraOpacity = baseOpacity * (1 - morphProgress);
+      tetraA.material.opacity = tetraOpacity;
+      tetraA.material.transparent = true;
+      tetraB.material.opacity = tetraOpacity;
+      tetraB.material.transparent = true;
+      tetraA.visible = morphProgress < 1;
+      tetraB.visible = morphProgress < 1;
+    } else {
+      // Restore tetra opacity when morph inactive
+      const baseOpacity = 1.0 - params.transparency;
+      tetraA.material.opacity = baseOpacity;
+      tetraA.material.transparent = baseOpacity < 1.0;
+      tetraA.visible = true;
+      tetraB.material.opacity = baseOpacity;
+      tetraB.material.transparent = baseOpacity < 1.0;
+      tetraB.visible = true;
+    }
+  }
+
   orbitControls.update();
   renderer.render(scene, camera);
 }
