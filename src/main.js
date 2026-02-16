@@ -405,11 +405,12 @@ function animate() {
     } else {
       // Restore tetra opacity when morph inactive
       const baseOpacity = 1.0 - params.transparency;
+      const isGlass = params.renderMode === 'Glass';
       tetraA.material.opacity = baseOpacity;
-      tetraA.material.transparent = baseOpacity < 1.0;
+      tetraA.material.transparent = isGlass || baseOpacity < 1.0;
       tetraA.visible = true;
       tetraB.material.opacity = baseOpacity;
-      tetraB.material.transparent = baseOpacity < 1.0;
+      tetraB.material.transparent = isGlass || baseOpacity < 1.0;
       tetraB.visible = true;
     }
   }

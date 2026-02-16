@@ -29,7 +29,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const chaosSphereFolder = gui.addFolder('Chaos Sphere');
   chaosSphereFolder.add(params, 'morphEnabled').name('Morph Enabled').onChange(saveSettings);
   const rebuildOnChange = () => { rebuildChaosSphere(); saveSettings(); };
-  chaosSphereFolder.add(params, 'chaosScale', 0.5, 3.0, 0.01).name('Scale').onChange(rebuildOnChange);
+  chaosSphereFolder.add(params, 'chaosScale', 0.5, 3.0, 0.01).name('Scale').onChange(saveSettings);
   chaosSphereFolder.add(params, 'sphereRadius', 0.05, 0.5, 0.01).name('Sphere Radius').onChange(rebuildOnChange);
   chaosSphereFolder.add(params, 'rayRadius', 0.01, 0.15, 0.01).name('Ray Radius').onChange(rebuildOnChange);
   chaosSphereFolder.add(params, 'coneRadius', 0.02, 0.3, 0.01).name('Cone Radius').onChange(rebuildOnChange);
