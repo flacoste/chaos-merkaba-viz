@@ -60,7 +60,7 @@ function rebuildChaosSphere() {
   );
   // Apply current render mode
   const gp = { transmission: params.transmission, thickness: params.thickness, roughness: params.roughness, ior: params.ior };
-  setChaosSphereRenderMode(chaosSphereGroup, params.renderMode, params.transparency, gp);
+  setChaosSphereRenderMode(chaosSphereGroup, params.renderMode, 0, gp);
   scene.add(chaosSphereGroup);
 }
 
@@ -108,7 +108,6 @@ const DEFAULTS = Object.freeze({
 
   // Appearance
   renderMode: 'Glass',
-  transparency: 0.0,
 
   // Glass material
   transmission: 0.5,
@@ -121,9 +120,9 @@ const DEFAULTS = Object.freeze({
   perVertexA: false,
   vertexColorsA: Object.freeze({
     top: '#d6ff33',
-    frontRight: '#42425c',
+    frontRight: '#800080',
     frontLeft: '#fd8c4e',
-    back: '#CC0000',
+    back: '#228B22',
   }),
 
   // Colors - Pointing Down
@@ -131,15 +130,15 @@ const DEFAULTS = Object.freeze({
   perVertexB: false,
   vertexColorsB: Object.freeze({
     bottom: '#e2c72c',
-    frontRight: '#800080',
+    frontRight: '#42425c',
     frontLeft: '#4169E1',
-    back: '#228B22',
+    back: '#CC0000',
   }),
 
   // Chaos Sphere
   morphEnabled: false,
   chaosScale: 1.2,
-  sphereRadius: 0.33,
+  sphereRadius: 0.45,
   rayRadius: 0.10,
   coneRadius: 0.15,
 });
@@ -237,8 +236,8 @@ const initialGlass = {
   roughness: params.roughness,
   ior: params.ior,
 };
-setRenderMode(tetraA, params.renderMode, params.transparency, initialGlass);
-setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
+setRenderMode(tetraA, params.renderMode, 0, initialGlass);
+setRenderMode(tetraB, params.renderMode, 0, initialGlass);
 
 // Apply initial colors (needed when restoring saved per-vertex settings)
 updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
@@ -393,8 +392,7 @@ function animate() {
       // Sync rotation with tetra A (the reference frame for lock alignment)
       chaosSphereGroup.rotation.y = tetraA.rotation.y;
       // Fade tetrahedra opacity
-      const baseOpacity = 1.0 - params.transparency;
-      const tetraOpacity = baseOpacity * (1 - morphProgress);
+      const tetraOpacity = 1 - morphProgress;
       tetraA.material.opacity = tetraOpacity;
       tetraA.material.transparent = true;
       tetraB.material.opacity = tetraOpacity;
@@ -403,13 +401,12 @@ function animate() {
       tetraB.visible = morphProgress < 1;
     } else {
       // Restore tetra opacity when morph inactive
-      const baseOpacity = 1.0 - params.transparency;
       const isGlass = params.renderMode === 'Glass';
-      tetraA.material.opacity = baseOpacity;
-      tetraA.material.transparent = isGlass || baseOpacity < 1.0;
+      tetraA.material.opacity = 1;
+      tetraA.material.transparent = isGlass;
       tetraA.visible = true;
-      tetraB.material.opacity = baseOpacity;
-      tetraB.material.transparent = isGlass || baseOpacity < 1.0;
+      tetraB.material.opacity = 1;
+      tetraB.material.transparent = isGlass;
       tetraB.visible = true;
     }
   }

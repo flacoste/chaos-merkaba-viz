@@ -65,8 +65,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const appearance = gui.addFolder('Appearance');
   appearance.add(params, 'renderMode', ['Solid', 'Glass']).name('Render Mode')
     .onChange(() => { applyMaterials(params, tetraA, tetraB); updateGlassVisibility(); saveSettings(); });
-  appearance.add(params, 'transparency', 0.0, 1.0, 0.01).name('Transparency')
-    .onChange(() => { applyMaterials(params, tetraA, tetraB); saveSettings(); });
+
 
   // Glass folder
   const glass = gui.addFolder('Glass');
@@ -122,12 +121,12 @@ function glassParamsFrom(params) {
 
 function applyMaterials(params, tetraA, tetraB) {
   const gp = glassParamsFrom(params);
-  setRenderMode(tetraA, params.renderMode, params.transparency, gp);
-  setRenderMode(tetraB, params.renderMode, params.transparency, gp);
+  setRenderMode(tetraA, params.renderMode, 0, gp);
+  setRenderMode(tetraB, params.renderMode, 0, gp);
   // Update chaos sphere materials
   const group = getChaosSphereGroup();
   if (group) {
-    setChaosSphereRenderMode(group, params.renderMode, params.transparency, gp);
+    setChaosSphereRenderMode(group, params.renderMode, 0, gp);
   }
 }
 
