@@ -373,7 +373,6 @@ function animate() {
     let morphProgress = 0;
     if (
       params.morphEnabled &&
-      params.autoRotate &&
       params.fused &&
       params.lockAchieved &&
       params.fusionMode !== 'Unlock' &&
