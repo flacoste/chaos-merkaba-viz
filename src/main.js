@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createTetrahedron, setRenderMode, updateMeshColors } from './tetrahedron.js';
 import { createControlPanel } from './controls.js';
+import {
+  buildChaosSphere, setMorphProgress,
+  updateChaosSphereColors, setChaosSphereRenderMode
+} from './chaos-sphere.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -33,6 +37,33 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
+// Chaos sphere
+let chaosSphereGroup = null;
+
+function rebuildChaosSphere() {
+  if (chaosSphereGroup) {
+    scene.remove(chaosSphereGroup);
+    chaosSphereGroup.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
+  }
+  const lockTarget = params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
+  const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
+  const colorsB = getTetraColors(params.colorB, params.perVertexB, params.vertexColorsB);
+  chaosSphereGroup = buildChaosSphere(
+    tetraA.userData.originalVerts,
+    tetraB.userData.originalVerts,
+    lockTarget,
+    { sphereRadius: params.sphereRadius, rayRadius: params.rayRadius, coneRadius: params.coneRadius },
+    colorsA, colorsB
+  );
+  // Apply current render mode
+  const gp = { transmission: params.transmission, thickness: params.thickness, roughness: params.roughness, ior: params.ior };
+  setChaosSphereRenderMode(chaosSphereGroup, params.renderMode, 0, gp);
+  scene.add(chaosSphereGroup);
+}
+
 // Lock shape alignment targets.
 // Three.js Y-rotation: effectiveAngle = origAngle - rotation.y
 // Target = value of (rotA - rotB) mod 2π that aligns corresponding named vertices.
@@ -46,6 +77,15 @@ const STELLA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_P
 // Merkaba: corresponding vertices at same XZ angle (flat Star of David)
 const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
 const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees, scaled up with speed
+
+// Helper: get current 4 colors for a tetrahedron
+function getTetraColors(mainColor, perVertex, vertexColorsObj) {
+  if (perVertex) {
+    return Object.values(vertexColorsObj).map(hex => new THREE.Color(hex));
+  }
+  const c = new THREE.Color(mainColor);
+  return [c, c, c, c];
+}
 
 const STORAGE_KEY = 'tetraviz-settings';
 
@@ -68,7 +108,6 @@ const DEFAULTS = Object.freeze({
 
   // Appearance
   renderMode: 'Glass',
-  transparency: 0.0,
 
   // Glass material
   transmission: 0.5,
@@ -81,9 +120,9 @@ const DEFAULTS = Object.freeze({
   perVertexA: false,
   vertexColorsA: Object.freeze({
     top: '#d6ff33',
-    frontRight: '#42425c',
+    frontRight: '#800080',
     frontLeft: '#fd8c4e',
-    back: '#CC0000',
+    back: '#228B22',
   }),
 
   // Colors - Pointing Down
@@ -91,10 +130,17 @@ const DEFAULTS = Object.freeze({
   perVertexB: false,
   vertexColorsB: Object.freeze({
     bottom: '#e2c72c',
-    frontRight: '#800080',
+    frontRight: '#42425c',
     frontLeft: '#4169E1',
-    back: '#228B22',
+    back: '#CC0000',
   }),
+
+  // Chaos Sphere
+  morphEnabled: false,
+  chaosScale: 1.2,
+  sphereRadius: 0.45,
+  rayRadius: 0.10,
+  coneRadius: 0.15,
 });
 
 function loadSettings() {
@@ -190,12 +236,15 @@ const initialGlass = {
   roughness: params.roughness,
   ior: params.ior,
 };
-setRenderMode(tetraA, params.renderMode, params.transparency, initialGlass);
-setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
+setRenderMode(tetraA, params.renderMode, 0, initialGlass);
+setRenderMode(tetraB, params.renderMode, 0, initialGlass);
 
 // Apply initial colors (needed when restoring saved per-vertex settings)
 updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
 updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
+
+// Build initial chaos sphere
+rebuildChaosSphere();
 
 // Reset function
 function reset() {
@@ -205,6 +254,8 @@ function reset() {
   params.rampBaseSpeed = 0;
   params.lockAchieved = false;
   params.fuseTime = null;
+  // Hide chaos sphere
+  if (chaosSphereGroup) chaosSphereGroup.visible = false;
 }
 
 // Fullscreen
@@ -237,6 +288,19 @@ function animate() {
   const deltaTime = (now - lastTime) / 1000; // seconds
   lastTime = now;
 
+  // Compute effective speed (with ramp if active)
+  function computeEffectiveSpeed() {
+    let speed = params.rotationSpeed;
+    if (params.rampStartTime !== null) {
+      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const durationSec = params.rampDuration * 60;
+      const progress = Math.min(elapsedSec / durationSec, 1.0);
+      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
+      speed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
+    }
+    return speed;
+  }
+
   // Scale
   tetraA.scale.setScalar(params.scale);
   tetraB.scale.setScalar(params.scale);
@@ -260,15 +324,7 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
-    // Compute effective speed (with ramp if active)
-    let effectiveSpeed = params.rotationSpeed;
-    if (params.rampStartTime !== null) {
-      const elapsedSec = (now - params.rampStartTime) / 1000;
-      const durationSec = params.rampDuration * 60;
-      const progress = Math.min(elapsedSec / durationSec, 1.0);
-      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
-      effectiveSpeed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
-    }
+    const effectiveSpeed = computeEffectiveSpeed();
 
     const isSpinLock = params.fusionMode !== 'Unlock';
     const signA = params.directionA === 'Clockwise' ? -1 : 1;
@@ -311,9 +367,60 @@ function animate() {
     }
   }
 
+  // Chaos sphere morph
+  if (chaosSphereGroup) {
+    let morphProgress = 0;
+    if (
+      params.morphEnabled &&
+      params.fused &&
+      params.lockAchieved &&
+      params.fusionMode !== 'Unlock' &&
+      params.rampStartTime !== null &&
+      params.rampMaxSpeed > 0
+    ) {
+      const speed = computeEffectiveSpeed();
+      morphProgress = Math.max(0, Math.min(1,
+        (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
+      ));
+    }
+
+    setMorphProgress(chaosSphereGroup, morphProgress);
+
+    if (morphProgress > 0) {
+      // Scale: combine scene scale with chaos sphere scale
+      chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
+      // Sync rotation with tetra A (the reference frame for lock alignment)
+      chaosSphereGroup.rotation.y = tetraA.rotation.y;
+      // Fade tetrahedra opacity
+      const tetraOpacity = 1 - morphProgress;
+      tetraA.material.opacity = tetraOpacity;
+      tetraA.material.transparent = true;
+      tetraB.material.opacity = tetraOpacity;
+      tetraB.material.transparent = true;
+      tetraA.visible = morphProgress < 1;
+      tetraB.visible = morphProgress < 1;
+    } else {
+      // Restore tetra opacity when morph inactive
+      const isGlass = params.renderMode === 'Glass';
+      tetraA.material.opacity = 1;
+      tetraA.material.transparent = isGlass;
+      tetraA.visible = true;
+      tetraB.material.opacity = 1;
+      tetraB.material.transparent = isGlass;
+      tetraB.visible = true;
+    }
+  }
+
   orbitControls.update();
   renderer.render(scene, camera);
 }
 animate();
 
-export { params, DEFAULTS, STORAGE_KEY, saveSettings, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
+function getChaosSphereGroup() { return chaosSphereGroup; }
+
+export {
+  params, DEFAULTS, STORAGE_KEY, saveSettings,
+  tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera,
+  rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
+  setChaosSphereRenderMode, updateChaosSphereColors,
+};
