@@ -157,19 +157,23 @@ export function setMorphProgress(group, progress) {
 
   const { sphereMesh, rays, sphereRadius } = group.userData;
 
-  // Sphere grows from nothing
-  sphereMesh.scale.setScalar(progress);
+  // Remap progress so the chaos sphere starts at 40% of final size,
+  // filling the tetrahedra volume from the beginning of the morph.
+  const MIN_SCALE = 0.4;
+  const scale = MIN_SCALE + (1 - MIN_SCALE) * progress;
+
+  sphereMesh.scale.setScalar(scale);
 
   // Rays grow from the scaled sphere surface outward.
   // Position base slightly inside the sphere to prevent visible gaps.
   const OVERLAP = 0.03;
-  const rayBase = (sphereRadius - OVERLAP) * progress;
+  const rayBase = (sphereRadius - OVERLAP) * scale;
   for (const ray of rays) {
     // Scale uniformly: both radius and length grow together
-    ray.cylMesh.scale.setScalar(progress);
+    ray.cylMesh.scale.setScalar(scale);
     ray.cylMesh.position.y = rayBase;
-    ray.coneMesh.scale.setScalar(progress);
-    ray.coneMesh.position.y = rayBase + ray.cylinderLength * progress;
+    ray.coneMesh.scale.setScalar(scale);
+    ray.coneMesh.position.y = rayBase + ray.cylinderLength * scale;
   }
 }
 
