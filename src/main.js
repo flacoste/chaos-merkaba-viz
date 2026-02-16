@@ -95,7 +95,6 @@ const DEFAULTS = Object.freeze({
   approachSpeed: 0.3,
 
   // Rotation
-  autoRotate: true,
   rotationSpeed: 0.5,
   directionA: 'Counterclockwise',
   directionB: 'Clockwise',
@@ -103,7 +102,7 @@ const DEFAULTS = Object.freeze({
   // Fusion behavior
   fusionMode: 'Unlock',       // 'Unlock' | 'Spin Lock CW' | 'Spin Lock CCW'
   lockShape: 'Stella Octangula', // 'Stella Octangula' | 'Merkaba'
-  rampDuration: 0.0,          // minutes to reach max speed (0 = disabled)
+  rampDuration: 2.0,          // minutes to reach max speed (0 = disabled)
   rampMaxSpeed: 10.0,         // target speed for ramp (0-20)
 
   // Appearance
@@ -136,7 +135,7 @@ const DEFAULTS = Object.freeze({
   }),
 
   // Chaos Sphere
-  morphEnabled: false,
+  morphEnabled: true,
   chaosScale: 1.2,
   sphereRadius: 0.45,
   rayRadius: 0.10,
@@ -172,6 +171,9 @@ function loadSettings() {
   base.rampBaseSpeed = 0;
   base.lockAchieved = false;
   base.fuseTime = null;
+  base.paused = false;
+  base.pausedDuration = 0;
+  base.pauseStartTime = null;
   return base;
 }
 
@@ -197,7 +199,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Click to toggle auto-rotate (distinguish from orbit drag)
+// Click to toggle pause (distinguish from orbit drag)
 let pointerStart = null;
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pointerStart = { x: e.clientX, y: e.clientY };
@@ -207,9 +209,13 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dx = e.clientX - pointerStart.x;
   const dy = e.clientY - pointerStart.y;
   if (dx * dx + dy * dy < 9) {
-    params.autoRotate = !params.autoRotate;
-    gui.controllersRecursive().find(c => c.property === 'autoRotate')?.updateDisplay();
-    saveSettings();
+    params.paused = !params.paused;
+    if (params.paused) {
+      params.pauseStartTime = performance.now();
+    } else if (params.pauseStartTime !== null) {
+      params.pausedDuration += performance.now() - params.pauseStartTime;
+      params.pauseStartTime = null;
+    }
   }
   pointerStart = null;
 });
@@ -254,8 +260,20 @@ function reset() {
   params.rampBaseSpeed = 0;
   params.lockAchieved = false;
   params.fuseTime = null;
+  params.paused = false;
+  params.pausedDuration = 0;
+  params.pauseStartTime = null;
   // Hide chaos sphere
   if (chaosSphereGroup) chaosSphereGroup.visible = false;
+}
+
+// Reset ramp to base speed (called when ramp-affecting params change)
+function resetRamp() {
+  if (params.rampStartTime === null || !params.fused) return;
+  params.rampStartTime = performance.now();
+  params.rampBaseSpeed = params.rotationSpeed;
+  params.pausedDuration = 0;
+  params.lockAchieved = false;
 }
 
 // Fullscreen
@@ -292,7 +310,7 @@ function animate() {
   function computeEffectiveSpeed() {
     let speed = params.rotationSpeed;
     if (params.rampStartTime !== null) {
-      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const elapsedSec = (now - params.rampStartTime - params.pausedDuration) / 1000;
       const durationSec = params.rampDuration * 60;
       const progress = Math.min(elapsedSec / durationSec, 1.0);
       const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
@@ -301,29 +319,29 @@ function animate() {
     return speed;
   }
 
-  // Scale
-  tetraA.scale.setScalar(params.scale);
-  tetraB.scale.setScalar(params.scale);
+  if (!params.paused) {
+    // Scale
+    tetraA.scale.setScalar(params.scale);
+    tetraB.scale.setScalar(params.scale);
 
-  // Approach
-  if (!params.fused) {
-    params.currentSeparation -= params.approachSpeed * deltaTime;
-    if (params.currentSeparation <= 0) {
-      params.currentSeparation = 0;
-      params.fused = true;
-      params.fuseTime = now;
-      // Activate speed ramp if duration > 0
-      if (params.rampDuration > 0) {
-        params.rampStartTime = now;
-        params.rampBaseSpeed = params.rotationSpeed;
+    // Approach
+    if (!params.fused) {
+      params.currentSeparation -= params.approachSpeed * deltaTime;
+      if (params.currentSeparation <= 0) {
+        params.currentSeparation = 0;
+        params.fused = true;
+        params.fuseTime = now;
+        // Activate speed ramp if duration > 0
+        if (params.rampDuration > 0) {
+          params.rampStartTime = now;
+          params.rampBaseSpeed = params.rotationSpeed;
+        }
       }
     }
-  }
-  tetraA.position.y = -params.currentSeparation / 2;
-  tetraB.position.y = params.currentSeparation / 2;
+    tetraA.position.y = -params.currentSeparation / 2;
+    tetraB.position.y = params.currentSeparation / 2;
 
-  // Rotation (Y-axis only)
-  if (params.autoRotate) {
+    // Rotation (Y-axis only)
     const effectiveSpeed = computeEffectiveSpeed();
 
     const isSpinLock = params.fusionMode !== 'Unlock';
@@ -365,49 +383,49 @@ function animate() {
       tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
       tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
     }
-  }
 
-  // Chaos sphere morph
-  if (chaosSphereGroup) {
-    let morphProgress = 0;
-    if (
-      params.morphEnabled &&
-      params.fused &&
-      params.lockAchieved &&
-      params.fusionMode !== 'Unlock' &&
-      params.rampStartTime !== null &&
-      params.rampMaxSpeed > 0
-    ) {
-      const speed = computeEffectiveSpeed();
-      morphProgress = Math.max(0, Math.min(1,
-        (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
-      ));
-    }
+    // Chaos sphere morph
+    if (chaosSphereGroup) {
+      let morphProgress = 0;
+      if (
+        params.morphEnabled &&
+        params.fused &&
+        params.lockAchieved &&
+        params.fusionMode !== 'Unlock' &&
+        params.rampStartTime !== null &&
+        params.rampMaxSpeed > 0
+      ) {
+        const speed = computeEffectiveSpeed();
+        morphProgress = Math.max(0, Math.min(1,
+          (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
+        ));
+      }
 
-    setMorphProgress(chaosSphereGroup, morphProgress);
+      setMorphProgress(chaosSphereGroup, morphProgress);
 
-    if (morphProgress > 0) {
-      // Scale: combine scene scale with chaos sphere scale
-      chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
-      // Sync rotation with tetra A (the reference frame for lock alignment)
-      chaosSphereGroup.rotation.y = tetraA.rotation.y;
-      // Fade tetrahedra opacity
-      const tetraOpacity = 1 - morphProgress;
-      tetraA.material.opacity = tetraOpacity;
-      tetraA.material.transparent = true;
-      tetraB.material.opacity = tetraOpacity;
-      tetraB.material.transparent = true;
-      tetraA.visible = morphProgress < 1;
-      tetraB.visible = morphProgress < 1;
-    } else {
-      // Restore tetra opacity when morph inactive
-      const isGlass = params.renderMode === 'Glass';
-      tetraA.material.opacity = 1;
-      tetraA.material.transparent = isGlass;
-      tetraA.visible = true;
-      tetraB.material.opacity = 1;
-      tetraB.material.transparent = isGlass;
-      tetraB.visible = true;
+      if (morphProgress > 0) {
+        // Scale: combine scene scale with chaos sphere scale
+        chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
+        // Sync rotation with tetra A (the reference frame for lock alignment)
+        chaosSphereGroup.rotation.y = tetraA.rotation.y;
+        // Fade tetrahedra opacity
+        const tetraOpacity = 1 - morphProgress;
+        tetraA.material.opacity = tetraOpacity;
+        tetraA.material.transparent = true;
+        tetraB.material.opacity = tetraOpacity;
+        tetraB.material.transparent = true;
+        tetraA.visible = morphProgress < 1;
+        tetraB.visible = morphProgress < 1;
+      } else {
+        // Restore tetra opacity when morph inactive
+        const isGlass = params.renderMode === 'Glass';
+        tetraA.material.opacity = 1;
+        tetraA.material.transparent = isGlass;
+        tetraA.visible = true;
+        tetraB.material.opacity = 1;
+        tetraB.material.transparent = isGlass;
+        tetraB.visible = true;
+      }
     }
   }
 
@@ -419,7 +437,7 @@ animate();
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
 export {
-  params, DEFAULTS, STORAGE_KEY, saveSettings,
+  params, DEFAULTS, STORAGE_KEY, saveSettings, resetRamp,
   tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
