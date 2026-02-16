@@ -160,11 +160,16 @@ export function setMorphProgress(group, progress) {
   // Sphere grows from nothing
   sphereMesh.scale.setScalar(progress);
 
-  // Rays extend outward, cones ride the tips
+  // Rays grow from the scaled sphere surface outward.
+  // Position base slightly inside the sphere to prevent visible gaps.
+  const OVERLAP = 0.03;
+  const rayBase = (sphereRadius - OVERLAP) * progress;
   for (const ray of rays) {
-    ray.cylMesh.scale.y = progress;
-    ray.coneMesh.position.y = sphereRadius + ray.cylinderLength * progress;
+    // Scale uniformly: both radius and length grow together
+    ray.cylMesh.scale.setScalar(progress);
+    ray.cylMesh.position.y = rayBase;
     ray.coneMesh.scale.setScalar(progress);
+    ray.coneMesh.position.y = rayBase + ray.cylinderLength * progress;
   }
 }
 
