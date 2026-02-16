@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createTetrahedron, setRenderMode, updateMeshColors } from './tetrahedron.js';
 import { createControlPanel } from './controls.js';
+import {
+  buildChaosSphere, setMorphProgress,
+  updateChaosSphereColors, setChaosSphereRenderMode
+} from './chaos-sphere.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -33,6 +37,33 @@ const tetraB = createTetrahedron(0xffffff, true);  // white, points down
 scene.add(tetraA);
 scene.add(tetraB);
 
+// Chaos sphere
+let chaosSphereGroup = null;
+
+function rebuildChaosSphere() {
+  if (chaosSphereGroup) {
+    scene.remove(chaosSphereGroup);
+    chaosSphereGroup.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
+  }
+  const lockTarget = params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
+  const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
+  const colorsB = getTetraColors(params.colorB, params.perVertexB, params.vertexColorsB);
+  chaosSphereGroup = buildChaosSphere(
+    tetraA.userData.originalVerts,
+    tetraB.userData.originalVerts,
+    lockTarget,
+    { sphereRadius: params.sphereRadius, rayRadius: params.rayRadius, coneRadius: params.coneRadius },
+    colorsA, colorsB
+  );
+  // Apply current render mode
+  const gp = { transmission: params.transmission, thickness: params.thickness, roughness: params.roughness, ior: params.ior };
+  setChaosSphereRenderMode(chaosSphereGroup, params.renderMode, params.transparency, gp);
+  scene.add(chaosSphereGroup);
+}
+
 // Lock shape alignment targets.
 // Three.js Y-rotation: effectiveAngle = origAngle - rotation.y
 // Target = value of (rotA - rotB) mod 2π that aligns corresponding named vertices.
@@ -46,6 +77,15 @@ const STELLA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_P
 // Merkaba: corresponding vertices at same XZ angle (flat Star of David)
 const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
 const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees, scaled up with speed
+
+// Helper: get current 4 colors for a tetrahedron
+function getTetraColors(mainColor, perVertex, vertexColorsObj) {
+  if (perVertex) {
+    return Object.values(vertexColorsObj).map(hex => new THREE.Color(hex));
+  }
+  const c = new THREE.Color(mainColor);
+  return [c, c, c, c];
+}
 
 const STORAGE_KEY = 'tetraviz-settings';
 
@@ -204,6 +244,9 @@ setRenderMode(tetraB, params.renderMode, params.transparency, initialGlass);
 updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
 updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
 
+// Build initial chaos sphere
+rebuildChaosSphere();
+
 // Reset function
 function reset() {
   params.currentSeparation = MAX_SEPARATION;
@@ -212,6 +255,8 @@ function reset() {
   params.rampBaseSpeed = 0;
   params.lockAchieved = false;
   params.fuseTime = null;
+  // Hide chaos sphere
+  if (chaosSphereGroup) chaosSphereGroup.visible = false;
 }
 
 // Fullscreen
@@ -323,4 +368,11 @@ function animate() {
 }
 animate();
 
-export { params, DEFAULTS, STORAGE_KEY, saveSettings, tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera };
+function getChaosSphereGroup() { return chaosSphereGroup; }
+
+export {
+  params, DEFAULTS, STORAGE_KEY, saveSettings,
+  tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera,
+  rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
+  setChaosSphereRenderMode, updateChaosSphereColors,
+};
