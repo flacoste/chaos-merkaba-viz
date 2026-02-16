@@ -199,7 +199,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Click to toggle auto-rotate (distinguish from orbit drag)
+// Click to toggle pause (distinguish from orbit drag)
 let pointerStart = null;
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pointerStart = { x: e.clientX, y: e.clientY };
@@ -209,9 +209,13 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dx = e.clientX - pointerStart.x;
   const dy = e.clientY - pointerStart.y;
   if (dx * dx + dy * dy < 9) {
-    params.autoRotate = !params.autoRotate;
-    gui.controllersRecursive().find(c => c.property === 'autoRotate')?.updateDisplay();
-    saveSettings();
+    params.paused = !params.paused;
+    if (params.paused) {
+      params.pauseStartTime = performance.now();
+    } else if (params.pauseStartTime !== null) {
+      params.pausedDuration += performance.now() - params.pauseStartTime;
+      params.pauseStartTime = null;
+    }
   }
   pointerStart = null;
 });
