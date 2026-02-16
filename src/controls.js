@@ -1,7 +1,7 @@
 import GUI from 'lil-gui';
 import { setRenderMode, updateMeshColors } from './tetrahedron.js';
 import {
-  saveSettings, DEFAULTS, STORAGE_KEY,
+  saveSettings, DEFAULTS, STORAGE_KEY, resetRamp,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
 } from './main.js';
@@ -18,11 +18,13 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed').onChange(saveSettings);
   rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode')
-    .onChange(() => { params.lockAchieved = false; saveSettings(); });
+    .onChange(() => { params.lockAchieved = false; resetRamp(); saveSettings(); });
   rotation.add(params, 'lockShape', ['Stella Octangula', 'Merkaba']).name('Lock Shape')
-    .onChange(() => { params.lockAchieved = false; rebuildChaosSphere(); saveSettings(); });
-  rotation.add(params, 'rampDuration', 0.0, 5.0, 0.1).name('Ramp Duration (min)').onChange(saveSettings);
-  rotation.add(params, 'rampMaxSpeed', 0.0, 20.0, 0.1).name('Ramp Max Speed').onChange(saveSettings);
+    .onChange(() => { params.lockAchieved = false; resetRamp(); rebuildChaosSphere(); saveSettings(); });
+  rotation.add(params, 'rampDuration', 0.0, 5.0, 0.1).name('Ramp Duration (min)')
+    .onChange(() => { resetRamp(); saveSettings(); });
+  rotation.add(params, 'rampMaxSpeed', 0.0, 20.0, 0.1).name('Ramp Max Speed')
+    .onChange(() => { resetRamp(); saveSettings(); });
 
   // Chaos Sphere folder
   const chaosSphereFolder = gui.addFolder('Chaos Sphere');

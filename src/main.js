@@ -267,6 +267,15 @@ function reset() {
   if (chaosSphereGroup) chaosSphereGroup.visible = false;
 }
 
+// Reset ramp to base speed (called when ramp-affecting params change)
+function resetRamp() {
+  if (params.rampStartTime === null || !params.fused) return;
+  params.rampStartTime = performance.now();
+  params.rampBaseSpeed = params.rotationSpeed;
+  params.pausedDuration = 0;
+  params.lockAchieved = false;
+}
+
 // Fullscreen
 let gui;
 const fullscreenFn = () => {
@@ -428,7 +437,7 @@ animate();
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
 export {
-  params, DEFAULTS, STORAGE_KEY, saveSettings,
+  params, DEFAULTS, STORAGE_KEY, saveSettings, resetRamp,
   tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
