@@ -289,6 +289,19 @@ function animate() {
   const deltaTime = (now - lastTime) / 1000; // seconds
   lastTime = now;
 
+  // Compute effective speed (with ramp if active)
+  function computeEffectiveSpeed() {
+    let speed = params.rotationSpeed;
+    if (params.rampStartTime !== null) {
+      const elapsedSec = (now - params.rampStartTime) / 1000;
+      const durationSec = params.rampDuration * 60;
+      const progress = Math.min(elapsedSec / durationSec, 1.0);
+      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
+      speed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
+    }
+    return speed;
+  }
+
   // Scale
   tetraA.scale.setScalar(params.scale);
   tetraB.scale.setScalar(params.scale);
@@ -312,15 +325,7 @@ function animate() {
 
   // Rotation (Y-axis only)
   if (params.autoRotate) {
-    // Compute effective speed (with ramp if active)
-    let effectiveSpeed = params.rotationSpeed;
-    if (params.rampStartTime !== null) {
-      const elapsedSec = (now - params.rampStartTime) / 1000;
-      const durationSec = params.rampDuration * 60;
-      const progress = Math.min(elapsedSec / durationSec, 1.0);
-      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
-      effectiveSpeed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
-    }
+    const effectiveSpeed = computeEffectiveSpeed();
 
     const isSpinLock = params.fusionMode !== 'Unlock';
     const signA = params.directionA === 'Clockwise' ? -1 : 1;
@@ -368,21 +373,14 @@ function animate() {
     let morphProgress = 0;
     if (
       params.morphEnabled &&
+      params.autoRotate &&
       params.fused &&
       params.lockAchieved &&
       params.fusionMode !== 'Unlock' &&
       params.rampStartTime !== null &&
       params.rampMaxSpeed > 0
     ) {
-      // effectiveSpeed is scoped inside autoRotate block; recompute here
-      let speed = params.rotationSpeed;
-      if (params.rampStartTime !== null) {
-        const elapsedSec = (now - params.rampStartTime) / 1000;
-        const durationSec = params.rampDuration * 60;
-        const progress = Math.min(elapsedSec / durationSec, 1.0);
-        const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
-        speed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
-      }
+      const speed = computeEffectiveSpeed();
       morphProgress = Math.max(0, Math.min(1,
         (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
       ));
