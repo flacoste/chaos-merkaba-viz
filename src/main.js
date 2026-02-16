@@ -95,6 +95,13 @@ const DEFAULTS = Object.freeze({
     frontLeft: '#4169E1',
     back: '#228B22',
   }),
+
+  // Chaos Sphere
+  morphEnabled: false,
+  chaosScale: 1.2,
+  sphereRadius: 0.33,
+  rayRadius: 0.10,
+  coneRadius: 0.15,
 });
 
 function loadSettings() {
