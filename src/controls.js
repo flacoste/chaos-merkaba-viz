@@ -16,7 +16,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
 
   // Rotation folder (shared settings only)
   const rotation = gui.addFolder('Rotation');
-  rotation.add(params, 'autoRotate').name('Auto-Rotate').onChange(saveSettings);
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed').onChange(saveSettings);
   rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode')
     .onChange(() => { params.lockAchieved = false; saveSettings(); });

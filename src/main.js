@@ -95,7 +95,6 @@ const DEFAULTS = Object.freeze({
   approachSpeed: 0.3,
 
   // Rotation
-  autoRotate: true,
   rotationSpeed: 0.5,
   directionA: 'Counterclockwise',
   directionB: 'Clockwise',
