@@ -102,7 +102,7 @@ const DEFAULTS = Object.freeze({
   // Fusion behavior
   fusionMode: 'Unlock',       // 'Unlock' | 'Spin Lock CW' | 'Spin Lock CCW'
   lockShape: 'Stella Octangula', // 'Stella Octangula' | 'Merkaba'
-  rampDuration: 0.0,          // minutes to reach max speed (0 = disabled)
+  rampDuration: 2.0,          // minutes to reach max speed (0 = disabled)
   rampMaxSpeed: 10.0,         // target speed for ramp (0-20)
 
   // Appearance
@@ -135,7 +135,7 @@ const DEFAULTS = Object.freeze({
   }),
 
   // Chaos Sphere
-  morphEnabled: false,
+  morphEnabled: true,
   chaosScale: 1.2,
   sphereRadius: 0.45,
   rayRadius: 0.10,
