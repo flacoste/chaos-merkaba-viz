@@ -149,9 +149,7 @@ const phases = {
         return null;
       }
 
-      // Emitting — ramp up over 3 seconds
-      ctx.emitRampElapsed += dt;
-
+      // Emitting — ramp timer advanced in animation loop (works in both EMIT and STEADY)
       // Once fully ramped, advance to STEADY
       if (ctx.emitRampElapsed >= 3.0) {
         return 'next';

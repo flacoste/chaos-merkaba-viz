@@ -460,6 +460,7 @@ function animate() {
     }
 
     if (ctx.emitting && particleSystem) {
+      ctx.emitRampElapsed += dt;
       const rampFactor = Math.min(1, ctx.emitRampElapsed / 3.0);
       const totalRate = params.emissionRate * 8 * rampFactor;
       ctx.emitAccumulator += totalRate * dt;
