@@ -191,7 +191,7 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   }, 'deletePreset').name('Delete Preset');
 
   function updateDeleteVisibility() {
-    deleteCtrl.domElement.style.display = activePresetName === 'Default' ? 'none' : '';
+    deleteCtrl.domElement.style.display = (activePresetName === 'Default' || isDirty) ? 'none' : '';
   }
   updateDeleteVisibility();
 

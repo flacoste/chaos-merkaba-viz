@@ -148,8 +148,58 @@ const DEFAULTS = Object.freeze({
 
 // Shipped presets beyond Default. Users can overwrite these; deletions are ephemeral.
 const SHIPPED_PRESETS = Object.freeze({
-  // Shipped presets will be added here after the framework is built,
-  // by tweaking settings in-app and capturing via JSON.stringify(params).
+  '8 Rays Chaos Sphere': {
+    scale: 1, approachDuration: 0.5, rotationSpeed: 0.5,
+    directionA: 'Counterclockwise', directionB: 'Clockwise',
+    fusionMode: 'Unlock', lockShape: 'Stella Octangula',
+    rampDuration: 2, rampMaxSpeed: 10,
+    renderMode: 'Glass', transmission: 0.5, thickness: 1, roughness: 0.35, ior: 1.5,
+    colorA: '#ff0000', perVertexA: true,
+    vertexColorsA: { top: '#d6ff33', frontRight: '#800080', frontLeft: '#fd8c4e', back: '#228B22' },
+    colorB: '#ffffff', perVertexB: true,
+    vertexColorsB: { bottom: '#e2c72c', frontRight: '#42425c', frontLeft: '#4169E1', back: '#CC0000' },
+    morphEnabled: true, chaosScale: 1.2, sphereRadius: 0.45, rayRadius: 0.1, coneRadius: 0.15,
+    emitEnabled: true, emitDelay: 0.5, coneAngle: 15, emissionRate: 10, particleSpeed: 3,
+  },
+  'Stella Octangula': {
+    scale: 1, approachDuration: 0.5, rotationSpeed: 0.5,
+    directionA: 'Counterclockwise', directionB: 'Clockwise',
+    fusionMode: 'Spin Lock CCW', lockShape: 'Stella Octangula',
+    rampDuration: 2, rampMaxSpeed: 10,
+    renderMode: 'Glass', transmission: 0.5, thickness: 1, roughness: 0.35, ior: 1.5,
+    colorA: '#ff0000', perVertexA: false,
+    vertexColorsA: { top: '#d6ff33', frontRight: '#800080', frontLeft: '#fd8c4e', back: '#228B22' },
+    colorB: '#ffffff', perVertexB: false,
+    vertexColorsB: { bottom: '#e2c72c', frontRight: '#42425c', frontLeft: '#4169E1', back: '#CC0000' },
+    morphEnabled: false, chaosScale: 1.2, sphereRadius: 0.45, rayRadius: 0.1, coneRadius: 0.15,
+    emitEnabled: true, emitDelay: 0.5, coneAngle: 15, emissionRate: 10, particleSpeed: 3,
+  },
+  'Merkaba': {
+    scale: 1, approachDuration: 0.5, rotationSpeed: 0.5,
+    directionA: 'Counterclockwise', directionB: 'Clockwise',
+    fusionMode: 'Spin Lock CW', lockShape: 'Merkaba',
+    rampDuration: 2, rampMaxSpeed: 10,
+    renderMode: 'Glass', transmission: 0.5, thickness: 1, roughness: 0.35, ior: 1.5,
+    colorA: '#ff0000', perVertexA: false,
+    vertexColorsA: { top: '#d6ff33', frontRight: '#800080', frontLeft: '#fd8c4e', back: '#228B22' },
+    colorB: '#ffffff', perVertexB: false,
+    vertexColorsB: { bottom: '#e2c72c', frontRight: '#42425c', frontLeft: '#4169E1', back: '#CC0000' },
+    morphEnabled: false, chaosScale: 1.2, sphereRadius: 0.45, rayRadius: 0.1, coneRadius: 0.15,
+    emitEnabled: true, emitDelay: 0.5, coneAngle: 15, emissionRate: 10, particleSpeed: 3,
+  },
+  'Black Chaos Sphere': {
+    scale: 1, approachDuration: 0.5, rotationSpeed: 0.5,
+    directionA: 'Counterclockwise', directionB: 'Clockwise',
+    fusionMode: 'Spin Lock CW', lockShape: 'Stella Octangula',
+    rampDuration: 2, rampMaxSpeed: 10,
+    renderMode: 'Glass', transmission: 0.5, thickness: 1, roughness: 0.35, ior: 1.5,
+    colorA: '#5a5858', perVertexA: false,
+    vertexColorsA: { top: '#d6ff33', frontRight: '#800080', frontLeft: '#fd8c4e', back: '#228B22' },
+    colorB: '#5a5858', perVertexB: false,
+    vertexColorsB: { bottom: '#e2c72c', frontRight: '#42425c', frontLeft: '#4169E1', back: '#CC0000' },
+    morphEnabled: true, chaosScale: 1.2, sphereRadius: 0.45, rayRadius: 0.1, coneRadius: 0.15,
+    emitEnabled: false, emitDelay: 0.5, coneAngle: 15, emissionRate: 10, particleSpeed: 3,
+  },
 });
 
 // --- Preset persistence ---
