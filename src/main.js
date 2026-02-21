@@ -6,6 +6,8 @@ import {
   buildChaosSphere, setMorphProgress,
   updateChaosSphereColors, setChaosSphereRenderMode
 } from './chaos-sphere.js';
+import { createPhaseManager } from './phase-manager.js';
+import { createParticleSystem } from './particles.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -65,18 +67,12 @@ function rebuildChaosSphere() {
 }
 
 // Lock shape alignment targets.
-// Three.js Y-rotation: effectiveAngle = origAngle - rotation.y
-// Target = value of (rotA - rotB) mod 2π that aligns corresponding named vertices.
-// Uses "back" vertex (index 3) as reference; result is identical for any base
-// vertex pair due to 3-fold symmetry.
 const backAngleA = Math.atan2(tetraA.userData.originalVerts[3].z, tetraA.userData.originalVerts[3].x);
 const backAngleB = Math.atan2(tetraB.userData.originalVerts[3].z, tetraB.userData.originalVerts[3].x);
 const TWO_PI = 2 * Math.PI;
-// Stella Octangula: corresponding vertices 180° apart (compact 3D star, dual cube corners)
 const STELLA_LOCK_TARGET = ((backAngleA - backAngleB - Math.PI) % TWO_PI + TWO_PI) % TWO_PI;
-// Merkaba: corresponding vertices at same XZ angle (flat Star of David)
 const MERKABA_LOCK_TARGET = ((backAngleA - backAngleB) % TWO_PI + TWO_PI) % TWO_PI;
-const ALIGNMENT_TOLERANCE = 0.03; // ~1.7 degrees, scaled up with speed
+const ALIGNMENT_TOLERANCE = 0.03;
 
 // Helper: get current 4 colors for a tetrahedron
 function getTetraColors(mainColor, perVertex, vertexColorsObj) {
@@ -92,7 +88,7 @@ const STORAGE_KEY = 'chaos-merkaba-viz-settings';
 const DEFAULTS = Object.freeze({
   // Transform
   scale: 1.0,
-  approachSpeed: 0.3,
+  approachDuration: 0.5,     // minutes (0 = skip approach)
 
   // Rotation
   rotationSpeed: 0.5,
@@ -140,6 +136,13 @@ const DEFAULTS = Object.freeze({
   sphereRadius: 0.45,
   rayRadius: 0.10,
   coneRadius: 0.15,
+
+  // Emission
+  emitEnabled: true,
+  emitDelay: 0.5,             // minutes after top speed
+  coneAngle: 15,              // degrees
+  emissionRate: 10,           // particles/sec/point
+  particleSpeed: 3,           // units/sec
 });
 
 function loadSettings() {
@@ -164,16 +167,8 @@ function loadSettings() {
   } catch {
     // Corrupted storage — use defaults
   }
-  // Always add transient state fresh
-  base.currentSeparation = MAX_SEPARATION;
-  base.fused = false;
-  base.rampStartTime = null;
-  base.rampBaseSpeed = 0;
-  base.lockAchieved = false;
-  base.fuseTime = null;
+  // Transient UI state
   base.paused = false;
-  base.pausedDuration = 0;
-  base.pauseStartTime = null;
   return base;
 }
 
@@ -187,6 +182,138 @@ function saveSettings() {
 
 // Shared params — initialized from saved settings or defaults
 const params = loadSettings();
+
+// Phase context — all transient animation state lives here
+const ctx = {
+  params,
+  MAX_SEPARATION,
+  // Transient state (reset by phase enter() methods)
+  currentSeparation: MAX_SEPARATION,
+  fused: false,
+  lockAchieved: false,
+  morphProgress: 0,
+  rampElapsed: 0,
+  rampActive: false,
+  rampBaseSpeed: 0,
+  stateElapsed: 0,
+  approachSpeed: 0,
+  emitting: false,
+  emitDelayElapsed: 0,
+  emitRampElapsed: 0,
+  emitAccumulator: 0,
+
+  computeEffectiveSpeed() {
+    let speed = this.params.rotationSpeed;
+    if (this.rampActive) {
+      const durationSec = this.params.rampDuration * 60;
+      const progress = durationSec > 0 ? Math.min(this.rampElapsed / durationSec, 1.0) : 1.0;
+      const effectiveMax = Math.max(this.params.rampMaxSpeed, this.rampBaseSpeed);
+      speed = this.rampBaseSpeed + (effectiveMax - this.rampBaseSpeed) * progress;
+    }
+    return speed;
+  },
+
+  // Alignment check callback — called by FUSE_LOCK phase to determine lock
+  checkAlignment(effectiveSpeed, dt) {
+    const target = this.params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
+    const relAngle = tetraA.rotation.y - tetraB.rotation.y;
+    const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
+    const diff = Math.abs(normalized - target);
+    const frameTolerance = Math.max(ALIGNMENT_TOLERANCE, effectiveSpeed * dt * 1.1);
+    if (diff < frameTolerance || diff > (TWO_PI - frameTolerance)) {
+      const k = Math.round((relAngle - target) / TWO_PI);
+      tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+      this.lockAchieved = true;
+    }
+    // Force-snap after 3 seconds
+    if (!this.lockAchieved && this.stateElapsed > 3.0) {
+      const k = Math.round((relAngle - target) / TWO_PI);
+      tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+      this.lockAchieved = true;
+    }
+  },
+};
+
+// Phase manager
+let phaseManager = createPhaseManager(ctx);
+phaseManager.restart();
+function getPhaseManager() { return phaseManager; }
+
+// Particle system (created lazily when emission starts)
+let particleSystem = null;
+const _tmpVec = new THREE.Vector3();
+
+// Pre-allocated emission buffers (zero-allocation hot path)
+const _emissionPoints = Array.from({ length: 8 }, () => ({
+  px: 0, py: 0, pz: 0, nx: 0, ny: 0, nz: 0, r: 0, g: 0, b: 0,
+}));
+const _colorsA = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+const _colorsB = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+
+function fillTetraColors(out, mainColor, perVertex, vertexColorsObj) {
+  if (perVertex) {
+    const vals = Object.values(vertexColorsObj);
+    for (let i = 0; i < 4; i++) out[i].set(vals[i]);
+  } else {
+    for (let i = 0; i < 4; i++) out[i].set(mainColor);
+  }
+}
+
+// Returns the number of emission points filled into _emissionPoints
+function computeEmissionPoints() {
+  let count = 0;
+  fillTetraColors(_colorsA, params.colorA, params.perVertexA, params.vertexColorsA);
+  fillTetraColors(_colorsB, params.colorB, params.perVertexB, params.vertexColorsB);
+
+  if (ctx.morphProgress > 0 && chaosSphereGroup && chaosSphereGroup.visible) {
+    // Emit from ray tips
+    chaosSphereGroup.updateMatrixWorld(true);
+    const { rays } = chaosSphereGroup.userData;
+
+    for (let i = 0; i < 8; i++) {
+      const ray = rays[i];
+      const rayGroup = ray.cylMesh.parent;
+      const tipY = ray.coneMesh.position.y + ray.coneHeight * ray.coneMesh.scale.y;
+      _tmpVec.set(0, tipY, 0);
+      _tmpVec.applyMatrix4(rayGroup.matrixWorld);
+
+      const len = _tmpVec.length() || 1;
+      const color = i < 4 ? _colorsA[i] : _colorsB[i - 4];
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = color.r; pt.g = color.g; pt.b = color.b;
+      count++;
+    }
+  } else if (ctx.fused) {
+    // Emit from tetra vertex positions
+    tetraA.updateMatrixWorld(true);
+    tetraB.updateMatrixWorld(true);
+
+    for (let i = 0; i < 4; i++) {
+      _tmpVec.copy(tetraA.userData.originalVerts[i]);
+      _tmpVec.applyMatrix4(tetraA.matrixWorld);
+      const len = _tmpVec.length() || 1;
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = _colorsA[i].r; pt.g = _colorsA[i].g; pt.b = _colorsA[i].b;
+      count++;
+    }
+    for (let i = 0; i < 4; i++) {
+      _tmpVec.copy(tetraB.userData.originalVerts[i]);
+      _tmpVec.applyMatrix4(tetraB.matrixWorld);
+      const len = _tmpVec.length() || 1;
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = _colorsB[i].r; pt.g = _colorsB[i].g; pt.b = _colorsB[i].b;
+      count++;
+    }
+  }
+
+  return count;
+}
 
 // OrbitControls
 const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -210,29 +337,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dy = e.clientY - pointerStart.y;
   if (dx * dx + dy * dy < 9) {
     params.paused = !params.paused;
-    if (params.paused) {
-      params.pauseStartTime = performance.now();
-    } else if (params.pauseStartTime !== null) {
-      params.pausedDuration += performance.now() - params.pauseStartTime;
-      params.pauseStartTime = null;
-    }
   }
   pointerStart = null;
-});
-
-// Keyboard: +/- to adjust rotation speed (cancels ramp)
-window.addEventListener('keydown', (e) => {
-  if (e.key === '+' || e.key === '=') {
-    params.rampStartTime = null; // cancel ramp
-    params.rotationSpeed = Math.min(Math.round((params.rotationSpeed + 0.1) * 100) / 100, 5.0);
-    gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
-    saveSettings();
-  } else if (e.key === '-' || e.key === '_') {
-    params.rampStartTime = null; // cancel ramp
-    params.rotationSpeed = Math.max(Math.round((params.rotationSpeed - 0.1) * 100) / 100, 0.0);
-    gui.controllersRecursive().find(c => c.property === 'rotationSpeed')?.updateDisplay();
-    saveSettings();
-  }
 });
 
 // Apply initial materials
@@ -254,26 +360,21 @@ rebuildChaosSphere();
 
 // Reset function
 function reset() {
-  params.currentSeparation = MAX_SEPARATION;
-  params.fused = false;
-  params.rampStartTime = null;
-  params.rampBaseSpeed = 0;
-  params.lockAchieved = false;
-  params.fuseTime = null;
   params.paused = false;
-  params.pausedDuration = 0;
-  params.pauseStartTime = null;
-  // Hide chaos sphere
   if (chaosSphereGroup) chaosSphereGroup.visible = false;
-}
-
-// Reset ramp to base speed (called when ramp-affecting params change)
-function resetRamp() {
-  if (params.rampStartTime === null || !params.fused) return;
-  params.rampStartTime = performance.now();
-  params.rampBaseSpeed = params.rotationSpeed;
-  params.pausedDuration = 0;
-  params.lockAchieved = false;
+  // Restore tetra visibility and opacity
+  const isGlass = params.renderMode === 'Glass';
+  tetraA.material.opacity = 1;
+  tetraA.material.transparent = isGlass;
+  tetraA.visible = true;
+  tetraB.material.opacity = 1;
+  tetraB.material.transparent = isGlass;
+  tetraB.visible = true;
+  // Reset particles
+  if (particleSystem) {
+    particleSystem.resetParticles();
+  }
+  phaseManager.restart();
 }
 
 // Fullscreen
@@ -303,121 +404,60 @@ function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now();
-  const deltaTime = (now - lastTime) / 1000; // seconds
+  const dt = (now - lastTime) / 1000; // seconds
   lastTime = now;
-
-  // Compute effective speed (with ramp if active)
-  function computeEffectiveSpeed() {
-    let speed = params.rotationSpeed;
-    if (params.rampStartTime !== null) {
-      const elapsedSec = (now - params.rampStartTime - params.pausedDuration) / 1000;
-      const durationSec = params.rampDuration * 60;
-      const progress = Math.min(elapsedSec / durationSec, 1.0);
-      const effectiveMax = Math.max(params.rampMaxSpeed, params.rampBaseSpeed);
-      speed = params.rampBaseSpeed + (effectiveMax - params.rampBaseSpeed) * progress;
-    }
-    return speed;
-  }
 
   if (!params.paused) {
     // Scale
     tetraA.scale.setScalar(params.scale);
     tetraB.scale.setScalar(params.scale);
 
-    // Approach
-    if (!params.fused) {
-      params.currentSeparation -= params.approachSpeed * deltaTime;
-      if (params.currentSeparation <= 0) {
-        params.currentSeparation = 0;
-        params.fused = true;
-        params.fuseTime = now;
-        // Activate speed ramp if duration > 0
-        if (params.rampDuration > 0) {
-          params.rampStartTime = now;
-          params.rampBaseSpeed = params.rotationSpeed;
-        }
-      }
+    // Advance ramp timer (independent of phases)
+    if (ctx.rampActive) {
+      ctx.rampElapsed += dt;
     }
-    tetraA.position.y = -params.currentSeparation / 2;
-    tetraB.position.y = params.currentSeparation / 2;
+
+    // Update phase state machine
+    phaseManager.update(dt);
+
+    // Apply tetra positions from phase state
+    tetraA.position.y = -ctx.currentSeparation / 2;
+    tetraB.position.y = ctx.currentSeparation / 2;
 
     // Rotation (Y-axis only)
-    const effectiveSpeed = computeEffectiveSpeed();
-
+    const effectiveSpeed = ctx.computeEffectiveSpeed();
     const isSpinLock = params.fusionMode !== 'Unlock';
     const signA = params.directionA === 'Clockwise' ? -1 : 1;
     const signB = params.directionB === 'Clockwise' ? -1 : 1;
 
-    if (params.fused && isSpinLock && params.lockAchieved) {
+    if (ctx.fused && isSpinLock && ctx.lockAchieved) {
       // Locked: rotate both together in the mode's direction
       const sign = params.fusionMode === 'Spin Lock CW' ? -1 : 1;
-      const delta = sign * effectiveSpeed * deltaTime;
+      const delta = sign * effectiveSpeed * dt;
       tetraA.rotation.y += delta;
       tetraB.rotation.y += delta;
-    } else if (params.fused && isSpinLock && !params.lockAchieved) {
-      // Seeking: rotate independently, check for alignment each frame
-      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
-      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
-
-      // Check alignment (mod 2π — must use full rotation to ensure correct vertex pairing)
-      const target = params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
-      const relAngle = tetraA.rotation.y - tetraB.rotation.y;
-      const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
-      const diff = Math.abs(normalized - target);
-      // Adaptive tolerance: scale with speed so we don't miss at high rpm
-      const frameTolerance = Math.max(ALIGNMENT_TOLERANCE, effectiveSpeed * deltaTime * 1.1);
-      if (diff < frameTolerance || diff > (TWO_PI - frameTolerance)) {
-        // Snap to nearest exact alignment: keep A, adjust B
-        const k = Math.round((relAngle - target) / TWO_PI);
-        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
-        params.lockAchieved = true;
-      }
-      // Fallback: force-snap after 3 seconds if relative angle isn't changing
-      if (!params.lockAchieved && params.fuseTime !== null && (now - params.fuseTime) > 3000) {
-        const k = Math.round((relAngle - target) / TWO_PI);
-        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
-        params.lockAchieved = true;
-      }
     } else {
-      // Unlock mode or pre-fusion: independent rotation
-      tetraA.rotation.y += signA * effectiveSpeed * deltaTime;
-      tetraB.rotation.y += signB * effectiveSpeed * deltaTime;
+      // Independent rotation (seeking, unlock, or pre-fusion)
+      // Alignment detection handled by FUSE_LOCK phase via ctx.checkAlignment()
+      tetraA.rotation.y += signA * effectiveSpeed * dt;
+      tetraB.rotation.y += signB * effectiveSpeed * dt;
     }
 
-    // Chaos sphere morph
+    // Chaos sphere morph visuals
     if (chaosSphereGroup) {
-      let morphProgress = 0;
-      if (
-        params.morphEnabled &&
-        params.fused &&
-        params.lockAchieved &&
-        params.fusionMode !== 'Unlock' &&
-        params.rampStartTime !== null &&
-        params.rampMaxSpeed > 0
-      ) {
-        const speed = computeEffectiveSpeed();
-        morphProgress = Math.max(0, Math.min(1,
-          (speed - 0.8 * params.rampMaxSpeed) / (0.2 * params.rampMaxSpeed)
-        ));
-      }
+      setMorphProgress(chaosSphereGroup, ctx.morphProgress);
 
-      setMorphProgress(chaosSphereGroup, morphProgress);
-
-      if (morphProgress > 0) {
-        // Scale: combine scene scale with chaos sphere scale
+      if (ctx.morphProgress > 0) {
         chaosSphereGroup.scale.setScalar(params.scale * params.chaosScale);
-        // Sync rotation with tetra A (the reference frame for lock alignment)
         chaosSphereGroup.rotation.y = tetraA.rotation.y;
-        // Fade tetrahedra opacity
-        const tetraOpacity = 1 - morphProgress;
+        const tetraOpacity = 1 - ctx.morphProgress;
         tetraA.material.opacity = tetraOpacity;
         tetraA.material.transparent = true;
         tetraB.material.opacity = tetraOpacity;
         tetraB.material.transparent = true;
-        tetraA.visible = morphProgress < 1;
-        tetraB.visible = morphProgress < 1;
+        tetraA.visible = ctx.morphProgress < 1;
+        tetraB.visible = ctx.morphProgress < 1;
       } else {
-        // Restore tetra opacity when morph inactive
         const isGlass = params.renderMode === 'Glass';
         tetraA.material.opacity = 1;
         tetraA.material.transparent = isGlass;
@@ -426,6 +466,35 @@ function animate() {
         tetraB.material.transparent = isGlass;
         tetraB.visible = true;
       }
+    }
+
+    // Particle emission
+    if (ctx.emitting && !particleSystem) {
+      particleSystem = createParticleSystem();
+      particleSystem.mesh.renderOrder = 1;
+      scene.add(particleSystem.mesh);
+    }
+
+    if (ctx.emitting && particleSystem) {
+      ctx.emitRampElapsed += dt;
+      const rampFactor = Math.min(1, ctx.emitRampElapsed / 3.0);
+      const totalRate = params.emissionRate * 8 * rampFactor;
+      ctx.emitAccumulator += totalRate * dt;
+      const count = Math.floor(ctx.emitAccumulator);
+      ctx.emitAccumulator -= count;
+
+      if (count > 0) {
+        const pointCount = computeEmissionPoints();
+        if (pointCount > 0) {
+          particleSystem.setEmissionPoints(_emissionPoints, pointCount);
+          particleSystem.setConeAngle(params.coneAngle);
+          particleSystem.emit(count, params.particleSpeed);
+        }
+      }
+    }
+
+    if (particleSystem) {
+      particleSystem.update(dt);
     }
   }
 
@@ -437,8 +506,7 @@ animate();
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
 export {
-  params, DEFAULTS, STORAGE_KEY, saveSettings, resetRamp,
-  tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera,
+  saveSettings, DEFAULTS, STORAGE_KEY, getPhaseManager,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
 };
