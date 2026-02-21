@@ -8,6 +8,7 @@ import {
 } from './chaos-sphere.js';
 import { createPhaseManager } from './phase-manager.js';
 import { createParticleSystem } from './particles.js';
+import { createHelpOverlay } from './help.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -581,6 +582,68 @@ document.addEventListener('fullscreenchange', () => {
 // Control panel
 gui = createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset, fullscreenFn);
 
+// Help overlay
+let lastHelpToggle = 0;
+
+function dismissHelp() {
+  help.hide();
+  params.paused = false;
+  gui.domElement.style.display = '';
+  if (pauseToggleTimeout) {
+    clearTimeout(pauseToggleTimeout);
+    pauseToggleTimeout = null;
+  }
+  lastHelpToggle = performance.now();
+}
+
+function showHelp() {
+  params.paused = true;
+  gui.domElement.style.display = 'none';
+  help.show();
+  if (pauseToggleTimeout) {
+    clearTimeout(pauseToggleTimeout);
+    pauseToggleTimeout = null;
+  }
+  lastHelpToggle = performance.now();
+}
+
+const help = createHelpOverlay({ onDismiss: dismissHelp });
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (gui.domElement.contains(document.activeElement)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  // Modal gate: any key dismisses help
+  if (help.isVisible()) {
+    if (performance.now() - lastHelpToggle < 300) return;
+    dismissHelp();
+    return;
+  }
+
+  switch (e.key) {
+    case ' ':
+      e.preventDefault();
+      params.paused = !params.paused;
+      break;
+
+    case 'f':
+    case 'F':
+      fullscreenFn();
+      break;
+
+    case '?':
+      if (performance.now() - lastHelpToggle < 300) return;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().then(() => showHelp());
+      } else {
+        showHelp();
+      }
+      break;
+  }
+});
+
 // Animation loop
 let lastTime = performance.now();
 
@@ -719,6 +782,11 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+// First-load: pause after first frame, show help overlay
+params.paused = true;
+gui.domElement.style.display = 'none';
+help.show();
 
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
