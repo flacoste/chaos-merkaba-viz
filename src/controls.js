@@ -40,24 +40,15 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   // Emission folder
   const emission = gui.addFolder('Emission');
   emission.add(params, 'emitEnabled').name('Emit Enabled')
-    .onChange(() => { getPhaseManager().onParamChange('emitEnabled'); updateEmissionVisibility(); saveSettings(); });
-  const emitDelayCtrl = emission.add(params, 'emitDelay', 0.0, 5.0, 0.1).name('Emit Delay (min)')
+    .onChange(() => { getPhaseManager().onParamChange('emitEnabled'); saveSettings(); });
+  emission.add(params, 'emitDelay', 0.0, 5.0, 0.1).name('Emit Delay (min)')
     .onChange(saveSettings);
-  const coneAngleCtrl = emission.add(params, 'coneAngle', 5, 45, 1).name('Cone Angle (deg)')
+  emission.add(params, 'coneAngle', 5, 45, 1).name('Cone Angle (deg)')
     .onChange(saveSettings);
-  const emissionRateCtrl = emission.add(params, 'emissionRate', 1, 50, 1).name('Emission Rate')
+  emission.add(params, 'emissionRate', 1, 50, 1).name('Emission Rate')
     .onChange(saveSettings);
-  const particleSpeedCtrl = emission.add(params, 'particleSpeed', 1, 10, 0.5).name('Particle Speed')
+  emission.add(params, 'particleSpeed', 1, 10, 0.5).name('Particle Speed')
     .onChange(saveSettings);
-
-  function updateEmissionVisibility() {
-    const show = params.emitEnabled;
-    emitDelayCtrl.domElement.parentElement.style.display = show ? '' : 'none';
-    coneAngleCtrl.domElement.parentElement.style.display = show ? '' : 'none';
-    emissionRateCtrl.domElement.parentElement.style.display = show ? '' : 'none';
-    particleSpeedCtrl.domElement.parentElement.style.display = show ? '' : 'none';
-  }
-  updateEmissionVisibility();
 
   // Per-tetrahedron folder builder
   function addTetraFolder(name, mesh, colorKey, perVertexKey, vcKey, dirKey, labels) {
@@ -122,7 +113,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
       applyColors(params, tetraA, tetraB);
       rebuildChaosSphere();
       updateGlassVisibility();
-      updateEmissionVisibility();
       resetFn();
     }
   }, 'resetDefaults').name('Reset Default Settings');
