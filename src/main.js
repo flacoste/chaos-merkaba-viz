@@ -83,7 +83,8 @@ function getTetraColors(mainColor, perVertex, vertexColorsObj) {
   return [c, c, c, c];
 }
 
-const STORAGE_KEY = 'chaos-merkaba-viz-settings';
+const OLD_STORAGE_KEY = 'chaos-merkaba-viz-settings';
+const PRESETS_KEY = 'chaos-merkaba-viz-presets';
 
 const DEFAULTS = Object.freeze({
   // Transform
@@ -145,43 +146,144 @@ const DEFAULTS = Object.freeze({
   particleSpeed: 3,           // units/sec
 });
 
-function loadSettings() {
-  const base = {
-    ...DEFAULTS,
-    vertexColorsA: { ...DEFAULTS.vertexColorsA },
-    vertexColorsB: { ...DEFAULTS.vertexColorsB },
+// Shipped presets beyond Default. Users can overwrite these; deletions are ephemeral.
+const SHIPPED_PRESETS = Object.freeze({
+  // Shipped presets will be added here after the framework is built,
+  // by tweaking settings in-app and capturing via JSON.stringify(params).
+});
+
+// --- Preset persistence ---
+
+/** Deep-clone a settings object (handles nested vertexColors). */
+function cloneSettings(src) {
+  return {
+    ...src,
+    vertexColorsA: { ...src.vertexColorsA },
+    vertexColorsB: { ...src.vertexColorsB },
   };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      for (const key of Object.keys(saved)) {
-        if (!(key in DEFAULTS)) continue;
-        if (key === 'vertexColorsA' || key === 'vertexColorsB') {
-          Object.assign(base[key], saved[key]);
-        } else {
-          base[key] = saved[key];
-        }
-      }
+}
+
+/** Merge a preset onto DEFAULTS so missing keys get default values. */
+function mergeOntoDefaults(preset) {
+  const base = cloneSettings(DEFAULTS);
+  for (const key of Object.keys(preset)) {
+    if (!(key in DEFAULTS)) continue;
+    if (key === 'vertexColorsA' || key === 'vertexColorsB') {
+      Object.assign(base[key], preset[key]);
+    } else {
+      base[key] = preset[key];
     }
-  } catch {
-    // Corrupted storage — use defaults
   }
-  // Transient UI state
-  base.paused = false;
   return base;
 }
 
-function saveSettings() {
-  const toSave = {};
-  for (const key of Object.keys(DEFAULTS)) {
-    toSave[key] = params[key];
+/** Read raw preset store from localStorage. */
+function readPresetStore() {
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return {
+        lastPreset: data.lastPreset || 'Default',
+        presets: data.presets || {},
+      };
+    }
+  } catch {
+    // Corrupted — wipe and start fresh
+    localStorage.removeItem(PRESETS_KEY);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  return { lastPreset: 'Default', presets: {} };
 }
 
-// Shared params — initialized from saved settings or defaults
-const params = loadSettings();
+/** Write preset store to localStorage. */
+function writePresetStore(store) {
+  try {
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(store));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      window.alert('Cannot save — localStorage is full.');
+    }
+  }
+}
+
+/** Get the effective preset map: Default + shipped + user overrides. */
+function getEffectivePresets() {
+  const store = readPresetStore();
+  const effective = { Default: DEFAULTS };
+  // Shipped presets (code-defined order)
+  for (const [name, values] of Object.entries(SHIPPED_PRESETS)) {
+    effective[name] = values;
+  }
+  // User overrides win on name collision
+  for (const [name, values] of Object.entries(store.presets)) {
+    effective[name] = values;
+  }
+  return effective;
+}
+
+/** Get ordered preset names: Default first, then shipped (code order), then user (alpha). */
+function getPresetNames() {
+  const store = readPresetStore();
+  const shippedNames = Object.keys(SHIPPED_PRESETS);
+  const userNames = Object.keys(store.presets)
+    .filter(n => n !== 'Default' && !shippedNames.includes(n))
+    .sort();
+  return ['Default', ...shippedNames, ...userNames];
+}
+
+/** Save (or overwrite) a user preset. */
+function saveUserPreset(name, settings) {
+  const store = readPresetStore();
+  store.presets[name] = cloneSettings(settings);
+  store.lastPreset = name;
+  writePresetStore(store);
+}
+
+/** Delete a user preset. Returns true if the preset was actually in storage. */
+function deleteUserPreset(name) {
+  const store = readPresetStore();
+  const existed = name in store.presets;
+  delete store.presets[name];
+  store.lastPreset = 'Default';
+  writePresetStore(store);
+  return existed;
+}
+
+/** Persist which preset is currently active (meta-state). */
+function setLastPreset(name) {
+  const store = readPresetStore();
+  store.lastPreset = name;
+  writePresetStore(store);
+}
+
+/** Get the last-active preset name, validated against available presets. */
+function getLastPreset() {
+  const store = readPresetStore();
+  const effective = getEffectivePresets();
+  if (store.lastPreset in effective) return store.lastPreset;
+  return 'Default';
+}
+
+/** Migrate: silently clear old storage key on first run. */
+function migrateOldStorage() {
+  if (localStorage.getItem(OLD_STORAGE_KEY)) {
+    localStorage.removeItem(OLD_STORAGE_KEY);
+  }
+}
+
+/** Load initial params from the last-active preset. */
+function loadInitialParams() {
+  migrateOldStorage();
+  const presetName = getLastPreset();
+  const effective = getEffectivePresets();
+  const preset = effective[presetName] || DEFAULTS;
+  const result = mergeOntoDefaults(preset);
+  result.paused = false;
+  return result;
+}
+
+// Shared params — initialized from last-active preset or defaults
+const params = loadInitialParams();
 
 // Phase context — all transient animation state lives here
 const ctx = {
@@ -506,7 +608,11 @@ animate();
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
 export {
-  saveSettings, DEFAULTS, STORAGE_KEY, getPhaseManager,
+  DEFAULTS, SHIPPED_PRESETS, getPhaseManager,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
+  cloneSettings, mergeOntoDefaults,
+  getEffectivePresets, getPresetNames,
+  saveUserPreset, deleteUserPreset,
+  setLastPreset, getLastPreset,
 };
