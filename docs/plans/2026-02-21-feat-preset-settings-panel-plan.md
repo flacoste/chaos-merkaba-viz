@@ -1,7 +1,7 @@
 ---
 title: "feat: Preset-based settings panel with reorganized drawers"
 type: feat
-status: active
+status: completed
 date: 2026-02-21
 origin: docs/brainstorms/2026-02-21-preset-settings-panel-brainstorm.md
 ---
