@@ -470,6 +470,8 @@ function computeEmissionPoints() {
 // OrbitControls
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
+orbitControls.minAzimuthAngle = 0;
+orbitControls.maxAzimuthAngle = 0;
 
 // Resize handling
 window.addEventListener('resize', () => {
@@ -478,19 +480,52 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// Camera roll state (transient — not saved in presets)
+let rollAngle = 0;
+let rollDelta = 0;
+let isDraggingRoll = false;
+let rollResetActive = false;
+let pauseToggleTimeout = null;
+const _rollQuat = new THREE.Quaternion();
+const _viewDir = new THREE.Vector3();
+
 // Click to toggle pause (distinguish from orbit drag)
 let pointerStart = null;
+let pointerButton = 0;
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pointerStart = { x: e.clientX, y: e.clientY };
+  pointerButton = e.button;
 });
 renderer.domElement.addEventListener('pointerup', (e) => {
   if (!pointerStart) return;
   const dx = e.clientX - pointerStart.x;
   const dy = e.clientY - pointerStart.y;
   if (dx * dx + dy * dy < 9) {
-    params.paused = !params.paused;
+    // Debounce: delay pause toggle so double-click doesn't flicker
+    if (pauseToggleTimeout) {
+      clearTimeout(pauseToggleTimeout);
+      pauseToggleTimeout = null;
+    } else {
+      pauseToggleTimeout = setTimeout(() => {
+        params.paused = !params.paused;
+        pauseToggleTimeout = null;
+      }, 300);
+    }
   }
   pointerStart = null;
+  isDraggingRoll = false;
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!pointerStart || pointerButton !== 0) return;
+  isDraggingRoll = true;
+  rollResetActive = false;
+  const sensitivity = (2 * Math.PI) / renderer.domElement.clientHeight;
+  rollDelta += e.movementX * sensitivity;
+});
+renderer.domElement.addEventListener('dblclick', () => {
+  rollAngle = Math.atan2(Math.sin(rollAngle), Math.cos(rollAngle));
+  rollResetActive = true;
+  rollDelta = 0;
 });
 
 // Apply initial materials
@@ -651,6 +686,27 @@ function animate() {
   }
 
   orbitControls.update();
+
+  // Camera roll: damping + reset animation
+  if (rollResetActive) {
+    rollAngle *= Math.pow(0.9, dt * 60);
+    if (Math.abs(rollAngle) < 0.001) {
+      rollAngle = 0;
+      rollResetActive = false;
+    }
+  } else {
+    rollAngle += rollDelta * 0.05;
+    rollDelta *= 0.95;
+    if (Math.abs(rollDelta) < 0.0001) rollDelta = 0;
+  }
+
+  // Apply roll rotation around camera's local Z-axis
+  if (rollAngle !== 0) {
+    _viewDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    _rollQuat.setFromAxisAngle(_viewDir, rollAngle);
+    camera.quaternion.premultiply(_rollQuat);
+  }
+
   renderer.render(scene, camera);
 }
 animate();
