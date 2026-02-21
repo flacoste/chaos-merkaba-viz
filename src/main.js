@@ -7,6 +7,7 @@ import {
   updateChaosSphereColors, setChaosSphereRenderMode
 } from './chaos-sphere.js';
 import { createPhaseManager } from './phase-manager.js';
+import { createParticleSystem } from './particles.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -199,6 +200,7 @@ const ctx = {
   emitting: false,
   emitDelayElapsed: 0,
   emitRampElapsed: 0,
+  emitAccumulator: 0,
 
   computeEffectiveSpeed() {
     let speed = this.params.rotationSpeed;
@@ -215,6 +217,65 @@ const ctx = {
 // Phase manager
 let phaseManager = createPhaseManager(ctx);
 function getPhaseManager() { return phaseManager; }
+
+// Particle system (created lazily when emission starts)
+let particleSystem = null;
+const _tmpVec = new THREE.Vector3();
+
+function computeEmissionPoints() {
+  const points = [];
+  const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
+  const colorsB = getTetraColors(params.colorB, params.perVertexB, params.vertexColorsB);
+
+  if (ctx.morphProgress > 0 && chaosSphereGroup && chaosSphereGroup.visible) {
+    // Emit from ray tips
+    chaosSphereGroup.updateMatrixWorld(true);
+    const { rays } = chaosSphereGroup.userData;
+
+    for (let i = 0; i < 8; i++) {
+      const ray = rays[i];
+      const rayGroup = ray.cylMesh.parent;
+      const tipY = ray.coneMesh.position.y + ray.coneHeight * ray.coneMesh.scale.y;
+      _tmpVec.set(0, tipY, 0);
+      _tmpVec.applyMatrix4(rayGroup.matrixWorld);
+
+      const len = _tmpVec.length() || 1;
+      const color = i < 4 ? colorsA[i] : colorsB[i - 4];
+      points.push({
+        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
+        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
+        r: color.r, g: color.g, b: color.b,
+      });
+    }
+  } else if (ctx.fused) {
+    // Emit from tetra vertex positions
+    tetraA.updateMatrixWorld(true);
+    tetraB.updateMatrixWorld(true);
+
+    for (let i = 0; i < 4; i++) {
+      _tmpVec.copy(tetraA.userData.originalVerts[i]);
+      _tmpVec.applyMatrix4(tetraA.matrixWorld);
+      const len = _tmpVec.length() || 1;
+      points.push({
+        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
+        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
+        r: colorsA[i].r, g: colorsA[i].g, b: colorsA[i].b,
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      _tmpVec.copy(tetraB.userData.originalVerts[i]);
+      _tmpVec.applyMatrix4(tetraB.matrixWorld);
+      const len = _tmpVec.length() || 1;
+      points.push({
+        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
+        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
+        r: colorsB[i].r, g: colorsB[i].g, b: colorsB[i].b,
+      });
+    }
+  }
+
+  return points;
+}
 
 // OrbitControls
 const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -271,6 +332,10 @@ function reset() {
   tetraB.material.opacity = 1;
   tetraB.material.transparent = isGlass;
   tetraB.visible = true;
+  // Reset particles
+  if (particleSystem) {
+    particleSystem.resetParticles();
+  }
   phaseManager.restart();
 }
 
@@ -384,6 +449,31 @@ function animate() {
         tetraB.material.transparent = isGlass;
         tetraB.visible = true;
       }
+    }
+
+    // Particle emission
+    if (ctx.emitting && !particleSystem) {
+      particleSystem = createParticleSystem();
+      scene.add(particleSystem.mesh);
+    }
+
+    if (ctx.emitting && particleSystem) {
+      const rampFactor = Math.min(1, ctx.emitRampElapsed / 3.0);
+      const totalRate = params.emissionRate * 8 * rampFactor;
+      ctx.emitAccumulator += totalRate * dt;
+      const count = Math.floor(ctx.emitAccumulator);
+      ctx.emitAccumulator -= count;
+
+      if (count > 0) {
+        const points = computeEmissionPoints();
+        particleSystem.setEmissionPoints(points);
+        particleSystem.setConeAngle(params.coneAngle);
+        particleSystem.emit(count, params.particleSpeed);
+      }
+    }
+
+    if (particleSystem) {
+      particleSystem.update(dt);
     }
   }
 

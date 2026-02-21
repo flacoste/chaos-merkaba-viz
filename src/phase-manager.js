@@ -138,6 +138,7 @@ const phases = {
       ctx.emitDelayElapsed = 0;
       ctx.emitting = false;
       ctx.emitRampElapsed = 0;
+      ctx.emitAccumulator = 0;
     },
     update(ctx, dt) {
       ctx.stateElapsed += dt;
@@ -168,8 +169,8 @@ const phases = {
   },
 
   [STEADY]: {
-    enter(ctx) {
-      ctx.emitting = true;
+    enter() {
+      // emitting state carries over from EMIT (true if EMIT ran, false if EMIT was skipped)
     },
     update() {
       return null;
