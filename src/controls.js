@@ -1,7 +1,7 @@
 import GUI from 'lil-gui';
 import { setRenderMode, updateMeshColors } from './tetrahedron.js';
 import {
-  saveSettings, DEFAULTS, STORAGE_KEY, resetRamp,
+  saveSettings, DEFAULTS, STORAGE_KEY, getPhaseManager,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
 } from './main.js';
@@ -12,28 +12,52 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   // Transform folder
   const transform = gui.addFolder('Transform');
   transform.add(params, 'scale', 0.1, 3.0, 0.01).name('Scale').onChange(saveSettings);
-  transform.add(params, 'approachSpeed', 0.0, 2.0, 0.01).name('Approach Speed').onChange(saveSettings);
+  transform.add(params, 'approachDuration', 0.0, 5.0, 0.1).name('Approach Duration (min)')
+    .onChange(() => { getPhaseManager().onParamChange('approachDuration'); saveSettings(); });
 
-  // Rotation folder (shared settings only)
+  // Rotation folder
   const rotation = gui.addFolder('Rotation');
   rotation.add(params, 'rotationSpeed', 0.0, 5.0, 0.01).name('Rotation Speed').onChange(saveSettings);
   rotation.add(params, 'fusionMode', ['Unlock', 'Spin Lock CW', 'Spin Lock CCW']).name('Fusion Mode')
-    .onChange(() => { params.lockAchieved = false; resetRamp(); saveSettings(); });
+    .onChange(() => { getPhaseManager().onParamChange('fusionMode'); saveSettings(); });
   rotation.add(params, 'lockShape', ['Stella Octangula', 'Merkaba']).name('Lock Shape')
-    .onChange(() => { params.lockAchieved = false; resetRamp(); rebuildChaosSphere(); saveSettings(); });
+    .onChange(() => { getPhaseManager().onParamChange('lockShape'); rebuildChaosSphere(); saveSettings(); });
   rotation.add(params, 'rampDuration', 0.0, 5.0, 0.1).name('Ramp Duration (min)')
-    .onChange(() => { resetRamp(); saveSettings(); });
+    .onChange(() => { getPhaseManager().onParamChange('rampDuration'); saveSettings(); });
   rotation.add(params, 'rampMaxSpeed', 0.0, 20.0, 0.1).name('Ramp Max Speed')
-    .onChange(() => { resetRamp(); saveSettings(); });
+    .onChange(() => { getPhaseManager().onParamChange('rampMaxSpeed'); saveSettings(); });
 
   // Chaos Sphere folder
   const chaosSphereFolder = gui.addFolder('Chaos Sphere');
-  chaosSphereFolder.add(params, 'morphEnabled').name('Morph Enabled').onChange(saveSettings);
+  chaosSphereFolder.add(params, 'morphEnabled').name('Morph Enabled')
+    .onChange(() => { getPhaseManager().onParamChange('morphEnabled'); saveSettings(); });
   const rebuildOnChange = () => { rebuildChaosSphere(); saveSettings(); };
   chaosSphereFolder.add(params, 'chaosScale', 0.5, 3.0, 0.01).name('Scale').onChange(saveSettings);
   chaosSphereFolder.add(params, 'sphereRadius', 0.05, 0.5, 0.01).name('Sphere Radius').onChange(rebuildOnChange);
   chaosSphereFolder.add(params, 'rayRadius', 0.01, 0.15, 0.01).name('Ray Radius').onChange(rebuildOnChange);
   chaosSphereFolder.add(params, 'coneRadius', 0.02, 0.3, 0.01).name('Cone Radius').onChange(rebuildOnChange);
+
+  // Emission folder
+  const emission = gui.addFolder('Emission');
+  emission.add(params, 'emitEnabled').name('Emit Enabled')
+    .onChange(() => { getPhaseManager().onParamChange('emitEnabled'); updateEmissionVisibility(); saveSettings(); });
+  const emitDelayCtrl = emission.add(params, 'emitDelay', 0.0, 5.0, 0.1).name('Emit Delay (min)')
+    .onChange(() => { getPhaseManager().onParamChange('emitDelay'); saveSettings(); });
+  const coneAngleCtrl = emission.add(params, 'coneAngle', 5, 45, 1).name('Cone Angle (deg)')
+    .onChange(() => { getPhaseManager().onParamChange('coneAngle'); saveSettings(); });
+  const emissionRateCtrl = emission.add(params, 'emissionRate', 1, 50, 1).name('Emission Rate')
+    .onChange(() => { getPhaseManager().onParamChange('emissionRate'); saveSettings(); });
+  const particleSpeedCtrl = emission.add(params, 'particleSpeed', 1, 10, 0.5).name('Particle Speed')
+    .onChange(() => { getPhaseManager().onParamChange('particleSpeed'); saveSettings(); });
+
+  function updateEmissionVisibility() {
+    const show = params.emitEnabled;
+    emitDelayCtrl.domElement.parentElement.style.display = show ? '' : 'none';
+    coneAngleCtrl.domElement.parentElement.style.display = show ? '' : 'none';
+    emissionRateCtrl.domElement.parentElement.style.display = show ? '' : 'none';
+    particleSpeedCtrl.domElement.parentElement.style.display = show ? '' : 'none';
+  }
+  updateEmissionVisibility();
 
   // Per-tetrahedron folder builder
   function addTetraFolder(name, mesh, colorKey, perVertexKey, vcKey, dirKey, labels) {
@@ -62,11 +86,10 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
     'colorB', 'perVertexB', 'vertexColorsB', 'directionB',
     ['Bottom', 'Front Right', 'Front Left', 'Back']);
 
-  // Appearance folder (no more Wireframe option)
+  // Appearance folder
   const appearance = gui.addFolder('Appearance');
   appearance.add(params, 'renderMode', ['Solid', 'Glass']).name('Render Mode')
     .onChange(() => { applyMaterials(params, tetraA, tetraB); updateGlassVisibility(); saveSettings(); });
-
 
   // Glass folder
   const glass = gui.addFolder('Glass');
@@ -87,7 +110,6 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   gui.add({
     resetDefaults: () => {
       localStorage.removeItem(STORAGE_KEY);
-      // Reset all persistent keys to defaults
       for (const key of Object.keys(DEFAULTS)) {
         if (key === 'vertexColorsA' || key === 'vertexColorsB') {
           Object.assign(params[key], DEFAULTS[key]);
@@ -95,14 +117,12 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
           params[key] = DEFAULTS[key];
         }
       }
-      // Refresh GUI
       gui.controllersRecursive().forEach(c => c.updateDisplay());
-      // Reapply materials and colors
       applyMaterials(params, tetraA, tetraB);
       applyColors(params, tetraA, tetraB);
       rebuildChaosSphere();
       updateGlassVisibility();
-      // Also restart the animation
+      updateEmissionVisibility();
       resetFn();
     }
   }, 'resetDefaults').name('Reset Default Settings');
@@ -124,7 +144,6 @@ function applyMaterials(params, tetraA, tetraB) {
   const gp = glassParamsFrom(params);
   setRenderMode(tetraA, params.renderMode, 0, gp);
   setRenderMode(tetraB, params.renderMode, 0, gp);
-  // Update chaos sphere materials
   const group = getChaosSphereGroup();
   if (group) {
     setChaosSphereRenderMode(group, params.renderMode, 0, gp);
@@ -134,7 +153,6 @@ function applyMaterials(params, tetraA, tetraB) {
 function applyColors(params, tetraA, tetraB) {
   updateMeshColors(tetraA, params.colorA, params.perVertexA, params.vertexColorsA);
   updateMeshColors(tetraB, params.colorB, params.perVertexB, params.vertexColorsB);
-  // Update chaos sphere colors
   const group = getChaosSphereGroup();
   if (group) {
     const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
