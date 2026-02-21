@@ -1,7 +1,7 @@
 ---
 title: "feat: Add help screen overlay and keyboard shortcuts"
 type: feat
-status: active
+status: completed
 date: 2026-02-21
 origin: docs/brainstorms/2026-02-21-help-screen-and-keyboard-shortcuts-brainstorm.md
 ---
@@ -188,21 +188,21 @@ const help = createHelpOverlay({ onDismiss: dismissHelp });
 
 ## Acceptance Criteria
 
-- [ ] Help overlay displays on every page load with frosted glass effect over the frozen first frame
-- [ ] Overlay contains title "Chaos Merkaba Viz", three SVG wireframes, phase description, mouse controls, and keyboard shortcuts
-- [ ] Click anywhere or press any key dismisses help and starts animation
-- [ ] `Space` toggles pause/start (same as click-to-pause)
-- [ ] `F` toggles fullscreen (enter/exit, same as GUI button)
-- [ ] `?` toggles help screen (pauses animation, hides GUI)
-- [ ] `?` while fullscreen exits fullscreen first, then shows help
-- [ ] Dismiss always unpauses regardless of prior pause state
-- [ ] Keyboard shortcuts are ignored while typing in lil-gui inputs
-- [ ] Keyboard shortcuts ignore modifier keys (Ctrl, Cmd, Alt)
-- [ ] Held keys (`e.repeat`) are ignored
-- [ ] Overlay fits on one screen without scrolling
-- [ ] lil-gui panel hidden while help is visible
-- [ ] 300ms debounce prevents `?` spam flicker
-- [ ] No regressions to existing click-to-pause, double-click reset, or orbit controls
+- [x] Help overlay displays on every page load with frosted glass effect over the frozen first frame
+- [x] Overlay contains title "Chaos Merkaba Viz", three SVG wireframes, phase description, mouse controls, and keyboard shortcuts
+- [x] Click anywhere or press any key dismisses help and starts animation
+- [x] `Space` toggles pause/start (same as click-to-pause)
+- [x] `F` toggles fullscreen (enter/exit, same as GUI button)
+- [x] `?` toggles help screen (pauses animation, hides GUI)
+- [x] `?` while fullscreen exits fullscreen first, then shows help
+- [x] Dismiss always unpauses regardless of prior pause state
+- [x] Keyboard shortcuts are ignored while typing in lil-gui inputs
+- [x] Keyboard shortcuts ignore modifier keys (Ctrl, Cmd, Alt)
+- [x] Held keys (`e.repeat`) are ignored
+- [x] Overlay fits on one screen without scrolling
+- [x] lil-gui panel hidden while help is visible
+- [x] 300ms debounce prevents `?` spam flicker
+- [x] No regressions to existing click-to-pause, double-click reset, or orbit controls
 
 ## Dependencies & Risks
 
