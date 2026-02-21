@@ -216,6 +216,7 @@ const ctx = {
 
 // Phase manager
 let phaseManager = createPhaseManager(ctx);
+phaseManager.restart();
 function getPhaseManager() { return phaseManager; }
 
 // Particle system (created lazily when emission starts)

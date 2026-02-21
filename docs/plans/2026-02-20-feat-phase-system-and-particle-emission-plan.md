@@ -1,7 +1,7 @@
 ---
 title: "feat: Phase State Machine and Particle Emission"
 type: feat
-status: active
+status: completed
 date: 2026-02-20
 deepened: 2026-02-21
 origin: docs/brainstorms/2026-02-20-phase-system-and-particle-emission-brainstorm.md
@@ -289,32 +289,32 @@ Unlock mode now allows all phases (see brainstorm). In Unlock mode:
 
 ### Functional Requirements
 
-- [ ] Phase state machine progresses linearly through Approach → Fuse & Lock → Transform → Emit → Steady
-- [ ] Each phase can be skipped via its configuration (approach duration=0, morph disabled, emit disabled)
-- [ ] Phase 2 (Fuse & Lock) is always mandatory and cannot be skipped
-- [ ] Unlock mode allows all phases (treats fusion as immediately locked)
-- [ ] Parameter changes restart current phase if relevant; fusionMode changes trigger full restart
-- [ ] Approach Duration slider (0–5 min, default 0.5 min) replaces Approach Speed
-- [ ] Particles emit as trailing streaks from 8 points in configurable conic sprays
-- [ ] Particle color matches emission point's vertex color
-- [ ] Emission source is adaptive: ray tips when morphed, vertex points when not
-- [ ] Emit Delay slider (0–5 min, default 0.5 min) controls delay after reaching top speed
-- [ ] Cone Angle slider (5°–45°, default 15°) controls spray spread
-- [ ] Emission Rate slider (1–50/sec/point, default 10) controls particle density
-- [ ] Particle Speed slider (1–10 units/sec, default 3) controls outward travel speed
-- [ ] Particles travel to viewport edge at constant opacity/size, despawn off-screen
-- [ ] Emission rate gradually builds over 3 seconds when Emit phase activates
-- [ ] All new settings persist to localStorage following existing pattern
-- [ ] Restart button resets to Phase 1 (or first enabled phase), disposes particles
-- [ ] Reset Defaults resets all new params and disposes particle system
-- [ ] Emission controls hidden when Emit Enabled is off (matching Glass folder pattern)
+- [x] Phase state machine progresses linearly through Approach → Fuse & Lock → Transform → Emit → Steady
+- [x] Each phase can be skipped via its configuration (approach duration=0, morph disabled, emit disabled)
+- [x] Phase 2 (Fuse & Lock) is always mandatory and cannot be skipped
+- [x] Unlock mode allows all phases (treats fusion as immediately locked)
+- [x] Parameter changes restart current phase if relevant; fusionMode changes trigger full restart
+- [x] Approach Duration slider (0–5 min, default 0.5 min) replaces Approach Speed
+- [x] Particles emit as trailing streaks from 8 points in configurable conic sprays
+- [x] Particle color matches emission point's vertex color
+- [x] Emission source is adaptive: ray tips when morphed, vertex points when not
+- [x] Emit Delay slider (0–5 min, default 0.5 min) controls delay after reaching top speed
+- [x] Cone Angle slider (5°–45°, default 15°) controls spray spread
+- [x] Emission Rate slider (1–50/sec/point, default 10) controls particle density
+- [x] Particle Speed slider (1–10 units/sec, default 3) controls outward travel speed
+- [x] Particles travel to viewport edge at constant opacity/size, despawn off-screen
+- [x] Emission rate gradually builds over 3 seconds when Emit phase activates
+- [x] All new settings persist to localStorage following existing pattern
+- [x] Restart button resets to Phase 1 (or first enabled phase), disposes particles
+- [x] Reset Defaults resets all new params and disposes particle system
+- [x] Emission controls hidden when Emit Enabled is off (matching Glass folder pattern)
 
 ### Non-Functional Requirements
 
-- [ ] No frame rate drop below 30fps with max emission settings (4096 particles)
-- [ ] No WebGL memory leaks on restart/reset (geometry and material disposed)
-- [ ] Phase timers use accumulated delta time (no phantom time on tab switch)
-- [ ] Particles freeze during pause (consistent with existing behavior)
+- [x] No frame rate drop below 30fps with max emission settings (4096 particles)
+- [x] No WebGL memory leaks on restart/reset (geometry and material disposed)
+- [x] Phase timers use accumulated delta time (no phantom time on tab switch)
+- [x] Particles freeze during pause (consistent with existing behavior)
 
 ## Implementation Phases
 
