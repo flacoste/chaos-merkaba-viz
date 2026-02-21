@@ -483,7 +483,6 @@ window.addEventListener('resize', () => {
 // Camera roll state (transient — not saved in presets)
 let rollAngle = 0;
 let rollDelta = 0;
-let isDraggingRoll = false;
 let cameraResetActive = false;
 let pauseToggleTimeout = null;
 const _rollQuat = new THREE.Quaternion();
@@ -493,10 +492,8 @@ const _defaultTarget = new THREE.Vector3(0, 0, 0);
 
 // Click to toggle pause (distinguish from orbit drag)
 let pointerStart = null;
-let pointerButton = 0;
 renderer.domElement.addEventListener('pointerdown', (e) => {
-  pointerStart = { x: e.clientX, y: e.clientY };
-  pointerButton = e.button;
+  pointerStart = { x: e.clientX, y: e.clientY, button: e.button };
 });
 renderer.domElement.addEventListener('pointerup', (e) => {
   if (!pointerStart) return;
@@ -515,11 +512,9 @@ renderer.domElement.addEventListener('pointerup', (e) => {
     }
   }
   pointerStart = null;
-  isDraggingRoll = false;
 });
 renderer.domElement.addEventListener('pointermove', (e) => {
-  if (!pointerStart || pointerButton !== 0) return;
-  isDraggingRoll = true;
+  if (!pointerStart || pointerStart.button !== 0) return;
   cameraResetActive = false;
   const sensitivity = (2 * Math.PI) / renderer.domElement.clientHeight;
   rollDelta += e.movementX * sensitivity;
@@ -693,7 +688,6 @@ function animate() {
     camera.position.lerp(_defaultCamPos, t);
     orbitControls.target.lerp(_defaultTarget, t);
     rollAngle *= (1 - t);
-    camera.lookAt(orbitControls.target);
 
     const posDist = camera.position.distanceTo(_defaultCamPos);
     const targetDist = orbitControls.target.length();
@@ -702,8 +696,10 @@ function animate() {
       orbitControls.target.set(0, 0, 0);
       rollAngle = 0;
       cameraResetActive = false;
-      orbitControls.update();
     }
+    // Sync OrbitControls' internal state every frame during reset,
+    // so canceling mid-animation doesn't cause a camera jump
+    orbitControls.update();
   } else {
     orbitControls.update();
 
