@@ -7,16 +7,6 @@ const STEADY = 'STEADY';
 
 const PHASE_ORDER = [APPROACH, FUSE_LOCK, TRANSFORM, EMIT, STEADY];
 
-// Map parameter names to the phase they affect.
-// Params with special-case handling are NOT in this map (see onParamChange).
-// Params read fresh each frame (emitDelay, coneAngle, emissionRate, particleSpeed)
-// are also excluded — they apply immediately without phase restart.
-const PARAM_PHASE_MAP = {
-  lockShape: FUSE_LOCK,
-  rampDuration: TRANSFORM,
-  rampMaxSpeed: TRANSFORM,
-};
-
 // --- Phase definitions ---
 
 const phases = {
@@ -33,12 +23,10 @@ const phases = {
       ctx.rampElapsed = 0;
       ctx.rampBaseSpeed = 0;
       ctx.emitting = false;
-      ctx.stateElapsed = 0;
       const durationSec = ctx.params.approachDuration * 60;
       ctx.approachSpeed = durationSec > 0 ? ctx.MAX_SEPARATION / durationSec : Infinity;
     },
     update(ctx, dt) {
-      ctx.stateElapsed += dt;
       ctx.currentSeparation -= ctx.approachSpeed * dt;
       if (ctx.currentSeparation <= 0) {
         ctx.currentSeparation = 0;
@@ -54,7 +42,6 @@ const phases = {
   [FUSE_LOCK]: {
     // Always mandatory — no canEnter guard
     enter(ctx) {
-      ctx.stateElapsed = 0;
       ctx.fused = true;
       ctx.currentSeparation = 0;
       ctx.lockAchieved = false;
@@ -76,8 +63,12 @@ const phases = {
     update(ctx, dt) {
       ctx.stateElapsed += dt;
 
-      // lockAchieved is set externally by rotation alignment check in main.js,
-      // or by the 3s force-snap timeout (also in main.js)
+      // Check alignment via callback (defined in main.js, owns scene graph access)
+      if (!ctx.lockAchieved && ctx.checkAlignment) {
+        const speed = ctx.computeEffectiveSpeed();
+        ctx.checkAlignment(speed, dt);
+      }
+
       if (ctx.lockAchieved) return 'next';
       return null;
     },
@@ -91,12 +82,9 @@ const phases = {
       return ctx.params.morphEnabled;
     },
     enter(ctx) {
-      ctx.stateElapsed = 0;
       ctx.morphProgress = 0;
     },
     update(ctx, dt) {
-      ctx.stateElapsed += dt;
-
       // If ramp is disabled, morph completes instantly
       if (!ctx.rampActive || ctx.params.rampDuration <= 0) {
         ctx.morphProgress = 1.0;
@@ -121,7 +109,6 @@ const phases = {
       }
       return null;
     },
-    exit() {},
   },
 
   [EMIT]: {
@@ -129,15 +116,12 @@ const phases = {
       return ctx.params.emitEnabled;
     },
     enter(ctx) {
-      ctx.stateElapsed = 0;
       ctx.emitDelayElapsed = 0;
       ctx.emitting = false;
       ctx.emitRampElapsed = 0;
       ctx.emitAccumulator = 0;
     },
     update(ctx, dt) {
-      ctx.stateElapsed += dt;
-
       if (!ctx.emitting) {
         // Wait for emit delay
         ctx.emitDelayElapsed += dt;
@@ -156,19 +140,12 @@ const phases = {
       }
       return null;
     },
-    exit() {
-      // Don't reset emitting — STEADY continues emission
-    },
   },
 
   [STEADY]: {
-    enter() {
-      // emitting state carries over from EMIT (true if EMIT ran, false if EMIT was skipped)
-    },
     update() {
       return null;
     },
-    exit() {},
   },
 };
 
@@ -205,10 +182,6 @@ function createSequenceMachine(stateDefinitions, stateOrder, ctx) {
       if (nextIdx < stateOrder.length) {
         transitionTo(stateOrder[nextIdx]);
       }
-    } else if (signal === 'restart') {
-      transitionTo(stateOrder[0]);
-    } else if (signal) {
-      transitionTo(signal);
     }
   }
 
@@ -230,7 +203,7 @@ export function createPhaseManager(ctx) {
 
   function onParamChange(paramName) {
     // fusionMode: restart at FUSE_LOCK (not APPROACH — separation is unrelated)
-    if (paramName === 'fusionMode') {
+    if (paramName === 'fusionMode' || paramName === 'lockShape') {
       const currentIdx = PHASE_ORDER.indexOf(machine.getCurrentState());
       if (currentIdx >= PHASE_ORDER.indexOf(FUSE_LOCK)) {
         machine.transitionTo(FUSE_LOCK);
@@ -291,18 +264,6 @@ export function createPhaseManager(ctx) {
       }
       return;
     }
-
-    // General path: restart from affected phase if at or past it
-    const affectedPhase = PARAM_PHASE_MAP[paramName];
-    if (!affectedPhase) return;
-
-    const currentPhase = machine.getCurrentState();
-    const currentIdx = PHASE_ORDER.indexOf(currentPhase);
-    const affectedIdx = PHASE_ORDER.indexOf(affectedPhase);
-
-    if (currentIdx >= affectedIdx) {
-      machine.transitionTo(affectedPhase);
-    }
   }
 
   return {
@@ -313,4 +274,3 @@ export function createPhaseManager(ctx) {
   };
 }
 
-export { APPROACH, FUSE_LOCK, TRANSFORM, EMIT, STEADY, PHASE_ORDER };

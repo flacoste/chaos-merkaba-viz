@@ -44,8 +44,8 @@ export function createStreakMaterial() {
 
         vec3 worldPos = aOffset;
         vec3 vel = aVelocity;
-        float speed = length(vel);
-        vec3 forward = speed > 0.001 ? normalize(vel) : vec3(0.0, 1.0, 0.0);
+        float speed = sqrt(dot(vel, vel));
+        vec3 forward = speed > 0.001 ? vel / speed : vec3(0.0, 1.0, 0.0);
         vec3 toCamera = normalize(cameraPosition - worldPos);
         vec3 right = normalize(cross(forward, toCamera));
 

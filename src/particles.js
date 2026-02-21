@@ -18,6 +18,16 @@ function createEmissionBasis(nx, ny, nz) {
   };
 }
 
+// Update an existing basis object in-place (zero-allocation hot path)
+function updateEmissionBasis(basis, nx, ny, nz) {
+  const sign = nz >= 0 ? 1.0 : -1.0;
+  const a = -1.0 / (sign + nz);
+  const b = nx * ny * a;
+  basis.nx = nx; basis.ny = ny; basis.nz = nz;
+  basis.t1x = 1.0 + sign * nx * nx * a; basis.t1y = sign * b; basis.t1z = -sign * nx;
+  basis.t2x = b; basis.t2y = sign + ny * ny * a; basis.t2z = -ny;
+}
+
 // Write a cone-sampled direction into a Float32Array at the given offset.
 // Zero-allocation hot path.
 function sampleConeDirectionInto(out, offset, basis, cosThetaMax) {
@@ -87,17 +97,27 @@ export function createParticleSystem() {
 
   // Emission state
   let emissionPoints = []; // { px, py, pz, nx, ny, nz, r, g, b }
-  let emissionBases = [];  // precomputed orthonormal bases
+  let emissionPointCount = 0;
+  // Pre-allocate 8 basis objects (max emission points = 8 vertices)
+  const emissionBases = Array.from({ length: 8 }, () => ({
+    nx: 0, ny: 0, nz: 0, t1x: 0, t1y: 0, t1z: 0, t2x: 0, t2y: 0, t2z: 0,
+  }));
   let cosThetaMax = Math.cos(15 * Math.PI / 180);
   let emitterIndex = 0;    // round-robin counter
   let recycleIndex = 0;    // ring-buffer index for pool-full recycling
 
-  function setEmissionPoints(points) {
+  function setEmissionPoints(points, count) {
     emissionPoints = points;
-    emissionBases = points.map(p => createEmissionBasis(p.nx, p.ny, p.nz));
+    emissionPointCount = count;
+    for (let i = 0; i < count; i++) {
+      updateEmissionBasis(emissionBases[i], points[i].nx, points[i].ny, points[i].nz);
+    }
   }
 
+  let lastAngleDeg = -1;
   function setConeAngle(angleDeg) {
+    if (angleDeg === lastAngleDeg) return;
+    lastAngleDeg = angleDeg;
     cosThetaMax = Math.cos(angleDeg * Math.PI / 180);
   }
 
@@ -106,12 +126,12 @@ export function createParticleSystem() {
 
   // Spawn particles
   function emit(count, particleSpeed) {
-    if (emissionPoints.length === 0) return;
+    if (emissionPointCount === 0) return;
 
     for (let i = 0; i < count; i++) {
       // Pick emitter round-robin
-      const ep = emissionPoints[emitterIndex % emissionPoints.length];
-      const basis = emissionBases[emitterIndex % emissionBases.length];
+      const ep = emissionPoints[emitterIndex % emissionPointCount];
+      const basis = emissionBases[emitterIndex % emissionPointCount];
       emitterIndex++;
 
       // Find slot: use next free slot, or overwrite in ring-buffer order when full
@@ -181,7 +201,6 @@ export function createParticleSystem() {
     geometry.instanceCount = aliveCount;
     offsetAttr.needsUpdate = true;
     velocityAttr.needsUpdate = true;
-    ageAttr.needsUpdate = true;
     colorAttr.needsUpdate = true;
   }
 

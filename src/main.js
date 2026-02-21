@@ -212,6 +212,26 @@ const ctx = {
     }
     return speed;
   },
+
+  // Alignment check callback — called by FUSE_LOCK phase to determine lock
+  checkAlignment(effectiveSpeed, dt) {
+    const target = this.params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
+    const relAngle = tetraA.rotation.y - tetraB.rotation.y;
+    const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
+    const diff = Math.abs(normalized - target);
+    const frameTolerance = Math.max(ALIGNMENT_TOLERANCE, effectiveSpeed * dt * 1.1);
+    if (diff < frameTolerance || diff > (TWO_PI - frameTolerance)) {
+      const k = Math.round((relAngle - target) / TWO_PI);
+      tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+      this.lockAchieved = true;
+    }
+    // Force-snap after 3 seconds
+    if (!this.lockAchieved && this.stateElapsed > 3.0) {
+      const k = Math.round((relAngle - target) / TWO_PI);
+      tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
+      this.lockAchieved = true;
+    }
+  },
 };
 
 // Phase manager
@@ -223,10 +243,27 @@ function getPhaseManager() { return phaseManager; }
 let particleSystem = null;
 const _tmpVec = new THREE.Vector3();
 
+// Pre-allocated emission buffers (zero-allocation hot path)
+const _emissionPoints = Array.from({ length: 8 }, () => ({
+  px: 0, py: 0, pz: 0, nx: 0, ny: 0, nz: 0, r: 0, g: 0, b: 0,
+}));
+const _colorsA = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+const _colorsB = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+
+function fillTetraColors(out, mainColor, perVertex, vertexColorsObj) {
+  if (perVertex) {
+    const vals = Object.values(vertexColorsObj);
+    for (let i = 0; i < 4; i++) out[i].set(vals[i]);
+  } else {
+    for (let i = 0; i < 4; i++) out[i].set(mainColor);
+  }
+}
+
+// Returns the number of emission points filled into _emissionPoints
 function computeEmissionPoints() {
-  const points = [];
-  const colorsA = getTetraColors(params.colorA, params.perVertexA, params.vertexColorsA);
-  const colorsB = getTetraColors(params.colorB, params.perVertexB, params.vertexColorsB);
+  let count = 0;
+  fillTetraColors(_colorsA, params.colorA, params.perVertexA, params.vertexColorsA);
+  fillTetraColors(_colorsB, params.colorB, params.perVertexB, params.vertexColorsB);
 
   if (ctx.morphProgress > 0 && chaosSphereGroup && chaosSphereGroup.visible) {
     // Emit from ray tips
@@ -241,12 +278,12 @@ function computeEmissionPoints() {
       _tmpVec.applyMatrix4(rayGroup.matrixWorld);
 
       const len = _tmpVec.length() || 1;
-      const color = i < 4 ? colorsA[i] : colorsB[i - 4];
-      points.push({
-        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
-        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
-        r: color.r, g: color.g, b: color.b,
-      });
+      const color = i < 4 ? _colorsA[i] : _colorsB[i - 4];
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = color.r; pt.g = color.g; pt.b = color.b;
+      count++;
     }
   } else if (ctx.fused) {
     // Emit from tetra vertex positions
@@ -257,25 +294,25 @@ function computeEmissionPoints() {
       _tmpVec.copy(tetraA.userData.originalVerts[i]);
       _tmpVec.applyMatrix4(tetraA.matrixWorld);
       const len = _tmpVec.length() || 1;
-      points.push({
-        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
-        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
-        r: colorsA[i].r, g: colorsA[i].g, b: colorsA[i].b,
-      });
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = _colorsA[i].r; pt.g = _colorsA[i].g; pt.b = _colorsA[i].b;
+      count++;
     }
     for (let i = 0; i < 4; i++) {
       _tmpVec.copy(tetraB.userData.originalVerts[i]);
       _tmpVec.applyMatrix4(tetraB.matrixWorld);
       const len = _tmpVec.length() || 1;
-      points.push({
-        px: _tmpVec.x, py: _tmpVec.y, pz: _tmpVec.z,
-        nx: _tmpVec.x / len, ny: _tmpVec.y / len, nz: _tmpVec.z / len,
-        r: colorsB[i].r, g: colorsB[i].g, b: colorsB[i].b,
-      });
+      const pt = _emissionPoints[count];
+      pt.px = _tmpVec.x; pt.py = _tmpVec.y; pt.pz = _tmpVec.z;
+      pt.nx = _tmpVec.x / len; pt.ny = _tmpVec.y / len; pt.nz = _tmpVec.z / len;
+      pt.r = _colorsB[i].r; pt.g = _colorsB[i].g; pt.b = _colorsB[i].b;
+      count++;
     }
   }
 
-  return points;
+  return count;
 }
 
 // OrbitControls
@@ -399,30 +436,9 @@ function animate() {
       const delta = sign * effectiveSpeed * dt;
       tetraA.rotation.y += delta;
       tetraB.rotation.y += delta;
-    } else if (ctx.fused && isSpinLock && !ctx.lockAchieved) {
-      // Seeking: rotate independently, check for alignment each frame
-      tetraA.rotation.y += signA * effectiveSpeed * dt;
-      tetraB.rotation.y += signB * effectiveSpeed * dt;
-
-      // Check alignment
-      const target = params.lockShape === 'Merkaba' ? MERKABA_LOCK_TARGET : STELLA_LOCK_TARGET;
-      const relAngle = tetraA.rotation.y - tetraB.rotation.y;
-      const normalized = ((relAngle % TWO_PI) + TWO_PI) % TWO_PI;
-      const diff = Math.abs(normalized - target);
-      const frameTolerance = Math.max(ALIGNMENT_TOLERANCE, effectiveSpeed * dt * 1.1);
-      if (diff < frameTolerance || diff > (TWO_PI - frameTolerance)) {
-        const k = Math.round((relAngle - target) / TWO_PI);
-        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
-        ctx.lockAchieved = true;
-      }
-      // Force-snap after 3 seconds (uses phase elapsed time)
-      if (!ctx.lockAchieved && ctx.stateElapsed > 3.0) {
-        const k = Math.round((relAngle - target) / TWO_PI);
-        tetraB.rotation.y = tetraA.rotation.y - (target + k * TWO_PI);
-        ctx.lockAchieved = true;
-      }
     } else {
-      // Unlock mode or pre-fusion: independent rotation
+      // Independent rotation (seeking, unlock, or pre-fusion)
+      // Alignment detection handled by FUSE_LOCK phase via ctx.checkAlignment()
       tetraA.rotation.y += signA * effectiveSpeed * dt;
       tetraB.rotation.y += signB * effectiveSpeed * dt;
     }
@@ -468,10 +484,12 @@ function animate() {
       ctx.emitAccumulator -= count;
 
       if (count > 0) {
-        const points = computeEmissionPoints();
-        particleSystem.setEmissionPoints(points);
-        particleSystem.setConeAngle(params.coneAngle);
-        particleSystem.emit(count, params.particleSpeed);
+        const pointCount = computeEmissionPoints();
+        if (pointCount > 0) {
+          particleSystem.setEmissionPoints(_emissionPoints, pointCount);
+          particleSystem.setConeAngle(params.coneAngle);
+          particleSystem.emit(count, params.particleSpeed);
+        }
       }
     }
 
@@ -488,8 +506,7 @@ animate();
 function getChaosSphereGroup() { return chaosSphereGroup; }
 
 export {
-  params, DEFAULTS, STORAGE_KEY, saveSettings, getPhaseManager,
-  tetraA, tetraB, MAX_SEPARATION, scene, renderer, camera, ctx,
+  saveSettings, DEFAULTS, STORAGE_KEY, getPhaseManager,
   rebuildChaosSphere, getChaosSphereGroup, getTetraColors,
   setChaosSphereRenderMode, updateChaosSphereColors,
 };
