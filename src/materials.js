@@ -52,8 +52,9 @@ export function createStreakMaterial() {
         float len = speed * STREAK_LENGTH;
         float wid = STREAK_WIDTH;
 
+        // Offset so head (uv.x=1) is at worldPos, trail extends behind
         vec3 displaced = worldPos
-          + forward * position.x * len
+          + forward * (position.x - 0.5) * len
           + right   * position.y * wid;
 
         gl_Position = projectionMatrix * viewMatrix * vec4(displaced, 1.0);

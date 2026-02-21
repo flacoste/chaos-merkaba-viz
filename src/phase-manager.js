@@ -242,17 +242,28 @@ export function createPhaseManager(ctx) {
       return;
     }
 
-    // Reset ramp when ramp-affecting params change
+    // morphEnabled: only restart if currently in TRANSFORM.
+    // Past TRANSFORM, the emission source adapts automatically (no restart).
+    if (paramName === 'morphEnabled') {
+      if (!ctx.params.morphEnabled) {
+        ctx.morphProgress = 0;
+      }
+      if (machine.getCurrentState() === TRANSFORM) {
+        machine.transitionTo(TRANSFORM);
+      }
+      return;
+    }
+
+    // Ramp params: reset the ramp, only restart if currently in TRANSFORM.
     if (paramName === 'rampDuration' || paramName === 'rampMaxSpeed') {
       if (ctx.rampActive) {
         ctx.rampElapsed = 0;
         ctx.rampBaseSpeed = ctx.params.rotationSpeed;
       }
-    }
-
-    // Reset morphProgress when morph is disabled
-    if (paramName === 'morphEnabled' && !ctx.params.morphEnabled) {
-      ctx.morphProgress = 0;
+      if (machine.getCurrentState() === TRANSFORM) {
+        machine.transitionTo(TRANSFORM);
+      }
+      return;
     }
 
     const affectedPhase = PARAM_PHASE_MAP[paramName];
@@ -262,7 +273,7 @@ export function createPhaseManager(ctx) {
     const currentIdx = PHASE_ORDER.indexOf(currentPhase);
     const affectedIdx = PHASE_ORDER.indexOf(affectedPhase);
 
-    // Only restart if we're at or past the affected phase
+    // Restart from the affected phase if we're at or past it
     if (currentIdx >= affectedIdx) {
       machine.transitionTo(affectedPhase);
     }
