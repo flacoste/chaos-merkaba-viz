@@ -127,10 +127,11 @@ export function createParticleSystem() {
       const s3 = slot * 3;
       const s4 = slot * 4;
 
-      // Position: emission point
-      offsets[s3] = ep.px;
-      offsets[s3 + 1] = ep.py;
-      offsets[s3 + 2] = ep.pz;
+      // Position: emission point, offset outward along normal to clear surface
+      const SPAWN_OFFSET = 0.12;
+      offsets[s3] = ep.px + ep.nx * SPAWN_OFFSET;
+      offsets[s3 + 1] = ep.py + ep.ny * SPAWN_OFFSET;
+      offsets[s3 + 2] = ep.pz + ep.nz * SPAWN_OFFSET;
 
       // Velocity: cone-sampled direction * speed
       sampleConeDirectionInto(_tempDir, 0, basis, cosThetaMax);

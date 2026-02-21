@@ -8,18 +8,13 @@ const STEADY = 'STEADY';
 const PHASE_ORDER = [APPROACH, FUSE_LOCK, TRANSFORM, EMIT, STEADY];
 
 // Map parameter names to the phase they affect.
-// fusionMode is special — always triggers a full restart.
+// Params with special-case handling are NOT in this map (see onParamChange).
+// Params read fresh each frame (emitDelay, coneAngle, emissionRate, particleSpeed)
+// are also excluded — they apply immediately without phase restart.
 const PARAM_PHASE_MAP = {
-  approachDuration: APPROACH,
   lockShape: FUSE_LOCK,
-  morphEnabled: TRANSFORM,
   rampDuration: TRANSFORM,
   rampMaxSpeed: TRANSFORM,
-  emitEnabled: EMIT,
-  emitDelay: EMIT,
-  coneAngle: EMIT,
-  emissionRate: EMIT,
-  particleSpeed: EMIT,
 };
 
 // --- Phase definitions ---
@@ -236,20 +231,53 @@ export function createPhaseManager(ctx) {
   const machine = createSequenceMachine(phases, PHASE_ORDER, ctx);
 
   function onParamChange(paramName) {
-    // fusionMode always triggers full restart
+    // fusionMode: restart at FUSE_LOCK (not APPROACH — separation is unrelated)
     if (paramName === 'fusionMode') {
-      machine.restart();
+      const currentIdx = PHASE_ORDER.indexOf(machine.getCurrentState());
+      if (currentIdx >= PHASE_ORDER.indexOf(FUSE_LOCK)) {
+        machine.transitionTo(FUSE_LOCK);
+      }
       return;
     }
 
-    // morphEnabled: only restart if currently in TRANSFORM.
-    // Past TRANSFORM, the emission source adapts automatically (no restart).
+    // approachDuration: only restart if currently in APPROACH
+    if (paramName === 'approachDuration') {
+      if (machine.getCurrentState() === APPROACH) {
+        machine.transitionTo(APPROACH);
+      }
+      return;
+    }
+
+    // morphEnabled: toggle morph on/off at any phase
     if (paramName === 'morphEnabled') {
       if (!ctx.params.morphEnabled) {
         ctx.morphProgress = 0;
+      } else {
+        // If past TRANSFORM, restore morph instantly
+        const currentIdx = PHASE_ORDER.indexOf(machine.getCurrentState());
+        if (currentIdx > PHASE_ORDER.indexOf(TRANSFORM)) {
+          ctx.morphProgress = 1.0;
+        }
       }
       if (machine.getCurrentState() === TRANSFORM) {
         machine.transitionTo(TRANSFORM);
+      }
+      return;
+    }
+
+    // emitEnabled: toggle emission on/off immediately
+    if (paramName === 'emitEnabled') {
+      if (!ctx.params.emitEnabled) {
+        ctx.emitting = false;
+        ctx.emitAccumulator = 0;
+      } else {
+        // If past EMIT, start emission immediately (skip delay, use ramp)
+        const currentIdx = PHASE_ORDER.indexOf(machine.getCurrentState());
+        if (currentIdx >= PHASE_ORDER.indexOf(EMIT)) {
+          ctx.emitting = true;
+          ctx.emitRampElapsed = 0;
+          ctx.emitAccumulator = 0;
+        }
       }
       return;
     }
@@ -266,6 +294,7 @@ export function createPhaseManager(ctx) {
       return;
     }
 
+    // General path: restart from affected phase if at or past it
     const affectedPhase = PARAM_PHASE_MAP[paramName];
     if (!affectedPhase) return;
 
@@ -273,7 +302,6 @@ export function createPhaseManager(ctx) {
     const currentIdx = PHASE_ORDER.indexOf(currentPhase);
     const affectedIdx = PHASE_ORDER.indexOf(affectedPhase);
 
-    // Restart from the affected phase if we're at or past it
     if (currentIdx >= affectedIdx) {
       machine.transitionTo(affectedPhase);
     }

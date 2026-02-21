@@ -42,13 +42,13 @@ export function createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset
   emission.add(params, 'emitEnabled').name('Emit Enabled')
     .onChange(() => { getPhaseManager().onParamChange('emitEnabled'); updateEmissionVisibility(); saveSettings(); });
   const emitDelayCtrl = emission.add(params, 'emitDelay', 0.0, 5.0, 0.1).name('Emit Delay (min)')
-    .onChange(() => { getPhaseManager().onParamChange('emitDelay'); saveSettings(); });
+    .onChange(saveSettings);
   const coneAngleCtrl = emission.add(params, 'coneAngle', 5, 45, 1).name('Cone Angle (deg)')
-    .onChange(() => { getPhaseManager().onParamChange('coneAngle'); saveSettings(); });
+    .onChange(saveSettings);
   const emissionRateCtrl = emission.add(params, 'emissionRate', 1, 50, 1).name('Emission Rate')
-    .onChange(() => { getPhaseManager().onParamChange('emissionRate'); saveSettings(); });
+    .onChange(saveSettings);
   const particleSpeedCtrl = emission.add(params, 'particleSpeed', 1, 10, 0.5).name('Particle Speed')
-    .onChange(() => { getPhaseManager().onParamChange('particleSpeed'); saveSettings(); });
+    .onChange(saveSettings);
 
   function updateEmissionVisibility() {
     const show = params.emitEnabled;

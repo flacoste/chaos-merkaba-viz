@@ -74,7 +74,7 @@ export function createStreakMaterial() {
     `,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
-    depthTest: false,
+    depthTest: true,
     transparent: true,
     side: THREE.DoubleSide,
   });

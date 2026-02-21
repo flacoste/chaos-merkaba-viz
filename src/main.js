@@ -455,6 +455,7 @@ function animate() {
     // Particle emission
     if (ctx.emitting && !particleSystem) {
       particleSystem = createParticleSystem();
+      particleSystem.mesh.renderOrder = 1;
       scene.add(particleSystem.mesh);
     }
 
