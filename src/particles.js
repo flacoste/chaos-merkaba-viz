@@ -90,6 +90,7 @@ export function createParticleSystem() {
   let emissionBases = [];  // precomputed orthonormal bases
   let cosThetaMax = Math.cos(15 * Math.PI / 180);
   let emitterIndex = 0;    // round-robin counter
+  let recycleIndex = 0;    // ring-buffer index for pool-full recycling
 
   function setEmissionPoints(points) {
     emissionPoints = points;
@@ -100,10 +101,12 @@ export function createParticleSystem() {
     cosThetaMax = Math.cos(angleDeg * Math.PI / 180);
   }
 
+  // Temp buffer for cone sampling (reused across calls)
+  const _tempDir = new Float32Array(3);
+
   // Spawn particles
   function emit(count, particleSpeed) {
     if (emissionPoints.length === 0) return;
-    const tempDir = new Float32Array(3);
 
     for (let i = 0; i < count; i++) {
       // Pick emitter round-robin
@@ -111,17 +114,14 @@ export function createParticleSystem() {
       const basis = emissionBases[emitterIndex % emissionBases.length];
       emitterIndex++;
 
-      // Find slot: use next alive slot or recycle oldest if full
+      // Find slot: use next free slot, or overwrite in ring-buffer order when full
       let slot;
       if (aliveCount < MAX_PARTICLES) {
         slot = aliveCount;
         aliveCount++;
       } else {
-        // Pool full — recycle oldest (slot 0, shift is too expensive, just overwrite)
-        slot = 0;
-        // Swap slot 0 to end, then overwrite end
-        // Actually just overwrite slot 0 directly — oldest particle
-        // No swap needed since we're replacing in-place
+        slot = recycleIndex;
+        recycleIndex = (recycleIndex + 1) % MAX_PARTICLES;
       }
 
       const s3 = slot * 3;
@@ -133,10 +133,10 @@ export function createParticleSystem() {
       offsets[s3 + 2] = ep.pz;
 
       // Velocity: cone-sampled direction * speed
-      sampleConeDirectionInto(tempDir, 0, basis, cosThetaMax);
-      velocities[s3] = tempDir[0] * particleSpeed;
-      velocities[s3 + 1] = tempDir[1] * particleSpeed;
-      velocities[s3 + 2] = tempDir[2] * particleSpeed;
+      sampleConeDirectionInto(_tempDir, 0, basis, cosThetaMax);
+      velocities[s3] = _tempDir[0] * particleSpeed;
+      velocities[s3 + 1] = _tempDir[1] * particleSpeed;
+      velocities[s3 + 2] = _tempDir[2] * particleSpeed;
 
       // Color: from emission point
       colors[s4] = ep.r;
@@ -213,6 +213,7 @@ export function createParticleSystem() {
     aliveCount = 0;
     geometry.instanceCount = 0;
     emitterIndex = 0;
+    recycleIndex = 0;
   }
 
   function dispose() {
