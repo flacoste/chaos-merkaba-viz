@@ -484,10 +484,12 @@ window.addEventListener('resize', () => {
 let rollAngle = 0;
 let rollDelta = 0;
 let isDraggingRoll = false;
-let rollResetActive = false;
+let cameraResetActive = false;
 let pauseToggleTimeout = null;
 const _rollQuat = new THREE.Quaternion();
 const _viewDir = new THREE.Vector3();
+const _defaultCamPos = new THREE.Vector3(0, 0, 6);
+const _defaultTarget = new THREE.Vector3(0, 0, 0);
 
 // Click to toggle pause (distinguish from orbit drag)
 let pointerStart = null;
@@ -518,13 +520,13 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 renderer.domElement.addEventListener('pointermove', (e) => {
   if (!pointerStart || pointerButton !== 0) return;
   isDraggingRoll = true;
-  rollResetActive = false;
+  cameraResetActive = false;
   const sensitivity = (2 * Math.PI) / renderer.domElement.clientHeight;
   rollDelta += e.movementX * sensitivity;
 });
 renderer.domElement.addEventListener('dblclick', () => {
   rollAngle = Math.atan2(Math.sin(rollAngle), Math.cos(rollAngle));
-  rollResetActive = true;
+  cameraResetActive = true;
   rollDelta = 0;
 });
 
@@ -685,16 +687,27 @@ function animate() {
     }
   }
 
-  orbitControls.update();
+  if (cameraResetActive) {
+    // Smoothly animate camera back to default position, target, and roll
+    const t = 1 - Math.pow(0.9, dt * 60);
+    camera.position.lerp(_defaultCamPos, t);
+    orbitControls.target.lerp(_defaultTarget, t);
+    rollAngle *= (1 - t);
+    camera.lookAt(orbitControls.target);
 
-  // Camera roll: damping + reset animation
-  if (rollResetActive) {
-    rollAngle *= Math.pow(0.9, dt * 60);
-    if (Math.abs(rollAngle) < 0.001) {
+    const posDist = camera.position.distanceTo(_defaultCamPos);
+    const targetDist = orbitControls.target.length();
+    if (posDist < 0.01 && targetDist < 0.01 && Math.abs(rollAngle) < 0.001) {
+      camera.position.copy(_defaultCamPos);
+      orbitControls.target.set(0, 0, 0);
       rollAngle = 0;
-      rollResetActive = false;
+      cameraResetActive = false;
+      orbitControls.update();
     }
   } else {
+    orbitControls.update();
+
+    // Camera roll damping
     rollAngle += rollDelta * 0.05;
     rollDelta *= 0.95;
     if (Math.abs(rollDelta) < 0.0001) rollDelta = 0;
