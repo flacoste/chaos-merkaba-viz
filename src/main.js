@@ -583,8 +583,6 @@ document.addEventListener('fullscreenchange', () => {
 gui = createControlPanel(params, tetraA, tetraB, MAX_SEPARATION, reset, fullscreenFn);
 
 // Help overlay
-let lastHelpToggle = 0;
-
 function dismissHelp() {
   help.hide();
   params.paused = false;
@@ -593,7 +591,6 @@ function dismissHelp() {
     clearTimeout(pauseToggleTimeout);
     pauseToggleTimeout = null;
   }
-  lastHelpToggle = performance.now();
 }
 
 function showHelp() {
@@ -604,7 +601,6 @@ function showHelp() {
     clearTimeout(pauseToggleTimeout);
     pauseToggleTimeout = null;
   }
-  lastHelpToggle = performance.now();
 }
 
 const help = createHelpOverlay({ onDismiss: dismissHelp });
@@ -617,7 +613,7 @@ document.addEventListener('keydown', (e) => {
 
   // Modal gate: any key dismisses help
   if (help.isVisible()) {
-    if (performance.now() - lastHelpToggle < 300) return;
+    if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
     dismissHelp();
     return;
   }
@@ -634,9 +630,8 @@ document.addEventListener('keydown', (e) => {
       break;
 
     case '?':
-      if (performance.now() - lastHelpToggle < 300) return;
       if (document.fullscreenElement) {
-        document.exitFullscreen().then(() => showHelp());
+        document.exitFullscreen().then(() => showHelp(), () => showHelp());
       } else {
         showHelp();
       }

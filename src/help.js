@@ -142,60 +142,109 @@ kbd {
 }
 `;
 
-// --- SVG wireframes ---
+// --- SVG shapes: hexagram (Star of David) representations ---
+// Both are hexagrams with R=24, center=(32,32).
+// Up-triangle (red): A(32,8) B(52.8,44) C(11.2,44)
+// Down-triangle (gray): D(32,56) E(11.2,20) F(52.8,20)
+// Inner hexagon: H1(38.9,20) H2(45.9,32) H3(38.9,44) H4(25.1,44) H5(18.1,32) H6(25.1,20)
+//
+// Merkaba: clean flat hexagram — center split horizontally, no internal edges.
+// Stella: 3D hexagram — center subdivided into 6 alternating triangles + internal edge lines.
 
-const SVG_MERKABA = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Up tetrahedron (red) -->
-  <polygon points="32,7 10,45 54,45" stroke="#ff4444" stroke-width="1.2" stroke-linejoin="round" opacity="0.9"/>
-  <!-- Down tetrahedron (white) — aligned back vertices: same orientation, flipped -->
-  <polygon points="32,57 10,19 54,19" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
-  <!-- Inner depth lines (3D cue) -->
-  <line x1="32" y1="7" x2="32" y2="57" stroke="rgba(255,255,255,0.15)" stroke-width="0.6"/>
-  <line x1="10" y1="45" x2="54" y2="19" stroke="rgba(255,255,255,0.15)" stroke-width="0.6"/>
-  <line x1="54" y1="45" x2="10" y2="19" stroke="rgba(255,255,255,0.15)" stroke-width="0.6"/>
+const SVG_MERKABA = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="32,8 38.9,20 25.1,20" fill="rgb(175,18,18)"/>
+  <polygon points="52.8,44 38.9,44 45.9,32" fill="rgb(135,12,12)"/>
+  <polygon points="11.2,44 18.1,32 25.1,44" fill="rgb(95,8,8)"/>
+  <polygon points="32,56 25.1,44 38.9,44" fill="rgb(140,140,140)"/>
+  <polygon points="52.8,20 45.9,32 38.9,20" fill="rgb(155,155,155)"/>
+  <polygon points="11.2,20 25.1,20 18.1,32" fill="rgb(95,95,95)"/>
+  <polygon points="25.1,20 38.9,20 45.9,32 18.1,32" fill="rgb(120,120,120)"/>
+  <polygon points="18.1,32 45.9,32 38.9,44 25.1,44" fill="rgb(130,12,12)"/>
 </svg>`;
 
-const SVG_STELLA = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Up tetrahedron (red) -->
-  <polygon points="32,6 11,44 53,44" stroke="#ff4444" stroke-width="1.2" stroke-linejoin="round" opacity="0.9"/>
-  <!-- Down tetrahedron (white) — anti-aligned: rotated 60° forming hexagram -->
-  <polygon points="32,58 11,20 53,20" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
-  <!-- Hexagonal core outline -->
-  <polygon points="21.5,24 42.5,24 53,32 42.5,40 21.5,40 11,32"
-    stroke="rgba(255,255,255,0.2)" stroke-width="0.5" fill="none"/>
+const SVG_STELLA = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="32,8 38.9,20 25.1,20" fill="rgb(175,18,18)"/>
+  <polygon points="52.8,44 38.9,44 45.9,32" fill="rgb(135,12,12)"/>
+  <polygon points="11.2,44 18.1,32 25.1,44" fill="rgb(95,8,8)"/>
+  <polygon points="32,56 25.1,44 38.9,44" fill="rgb(140,140,140)"/>
+  <polygon points="52.8,20 45.9,32 38.9,20" fill="rgb(155,155,155)"/>
+  <polygon points="11.2,20 25.1,20 18.1,32" fill="rgb(95,95,95)"/>
+  <polygon points="32,32 25.1,20 38.9,20" fill="rgb(160,15,15)"/>
+  <polygon points="32,32 38.9,20 45.9,32" fill="rgb(130,130,130)"/>
+  <polygon points="32,32 45.9,32 38.9,44" fill="rgb(125,10,10)"/>
+  <polygon points="32,32 38.9,44 25.1,44" fill="rgb(115,115,115)"/>
+  <polygon points="32,32 25.1,44 18.1,32" fill="rgb(90,8,8)"/>
+  <polygon points="32,32 18.1,32 25.1,20" fill="rgb(90,90,90)"/>
+  <polygon points="32,29 22.3,24.8 41.7,24.8" fill="rgb(115,115,115)" stroke="rgba(255,255,255,0.15)" stroke-width="0.4"/>
+  <polygon points="32,35 41.7,39.2 22.3,39.2" fill="rgb(130,12,12)" stroke="rgba(255,255,255,0.15)" stroke-width="0.4"/>
 </svg>`;
 
-const SVG_CHAOSPHERE = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Central sphere -->
-  <circle cx="32" cy="32" r="7" stroke="rgba(255,255,255,0.7)" stroke-width="1" fill="none"/>
-  <!-- 8 rays with arrow tips -->
-  ${[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => {
+// --- Chaosphere: central sphere + 8 tapered 3D rays with cone tips ---
+// Colors: per-vertex defaults. Swapped frontRight↔frontRight and frontLeft↔frontLeft
+// between tetra A and B per user request.
+const SVG_CHAOSPHERE = (() => {
+  const rayColors = [
+    '#d6ff33', // top A — lime
+    '#42425c', // frontRight A — dark blue-gray (swapped from B)
+    '#4169E1', // frontLeft A — blue (swapped from B)
+    '#228B22', // back A — green
+    '#e2c72c', // bottom B — yellow
+    '#800080', // frontRight B — purple (swapped from A)
+    '#fd8c4e', // frontLeft B — orange (swapped from A)
+    '#CC0000', // back B — red
+  ];
+  const rays = rayColors.map((color, i) => {
+    const deg = i * 45 - 90;
     const rad = deg * Math.PI / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
-    const x1 = 32 + cos * 9;
-    const y1 = 32 + sin * 9;
-    const x2 = 32 + cos * 27;
-    const y2 = 32 + sin * 27;
-    // Arrow tip
-    const tipLen = 4;
-    const tipAng = 0.45;
-    const ax = x2 - tipLen * Math.cos(rad - tipAng);
-    const ay = y2 - tipLen * Math.sin(rad - tipAng);
-    const bx = x2 - tipLen * Math.cos(rad + tipAng);
-    const by = y2 - tipLen * Math.sin(rad + tipAng);
-    const colors = ['#ff4444', '#ffffff', '#ff4444', '#ffffff', '#ff4444', '#ffffff', '#ff4444', '#ffffff'];
-    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
-      stroke="${colors[i]}" stroke-width="1.3" opacity="0.8"/>
-    <polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}"
-      stroke="${colors[i]}" stroke-width="1" fill="none" opacity="0.8"/>`;
-  }).join('\n  ')}
+    // Ray body: tapered polygon for 3D cylinder look
+    const baseR = 9;
+    const tipR = 22;
+    const baseW = 1.6;
+    const tipW = 0.5;
+    // Perpendicular direction
+    const px = -sin;
+    const py = cos;
+    const bx1 = 32 + cos * baseR + px * baseW;
+    const by1 = 32 + sin * baseR + py * baseW;
+    const bx2 = 32 + cos * baseR - px * baseW;
+    const by2 = 32 + sin * baseR - py * baseW;
+    const tx1 = 32 + cos * tipR + px * tipW;
+    const ty1 = 32 + sin * tipR + py * tipW;
+    const tx2 = 32 + cos * tipR - px * tipW;
+    const ty2 = 32 + sin * tipR - py * tipW;
+    // Cone arrow tip
+    const coneBase = tipR;
+    const coneTip = 27;
+    const coneW = 2.8;
+    const cx1 = 32 + cos * coneBase + px * coneW;
+    const cy1 = 32 + sin * coneBase + py * coneW;
+    const cx2 = 32 + cos * coneBase - px * coneW;
+    const cy2 = 32 + sin * coneBase - py * coneW;
+    const ctX = 32 + cos * coneTip;
+    const ctY = 32 + sin * coneTip;
+    return `<polygon points="${bx1.toFixed(1)},${by1.toFixed(1)} ${tx1.toFixed(1)},${ty1.toFixed(1)} ${tx2.toFixed(1)},${ty2.toFixed(1)} ${bx2.toFixed(1)},${by2.toFixed(1)}"
+      fill="${color}" opacity="0.8"/>
+    <polygon points="${cx1.toFixed(1)},${cy1.toFixed(1)} ${ctX.toFixed(1)},${ctY.toFixed(1)} ${cx2.toFixed(1)},${cy2.toFixed(1)}"
+      fill="${color}" opacity="0.85"/>`;
+  }).join('\n  ');
+  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sg">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+  ${rays}
+  <circle cx="32" cy="32" r="9" fill="url(#sg)"/>
+  <circle cx="32" cy="32" r="7.5" stroke="rgba(255,255,255,0.5)" stroke-width="0.7" fill="rgba(30,30,30,0.6)"/>
 </svg>`;
+})();
 
 // --- HTML content ---
 
-function buildHTML() {
-  return `
+const HELP_HTML = `
 <div class="help-content">
   <h1 class="help-title">Chaos Merkaba Viz</h1>
 
@@ -232,21 +281,23 @@ function buildHTML() {
 
   <p class="help-dismiss">Click or press any key to start</p>
 </div>`;
-}
 
 // --- Module API ---
 
 export function createHelpOverlay({ onDismiss } = {}) {
   // Inject styles once
-  const style = document.createElement('style');
-  style.textContent = STYLE_CSS;
-  document.head.appendChild(style);
+  if (!document.getElementById('help-overlay-styles')) {
+    const style = document.createElement('style');
+    style.id = 'help-overlay-styles';
+    style.textContent = STYLE_CSS;
+    document.head.appendChild(style);
+  }
 
   // Create overlay element
   const overlay = document.createElement('div');
   overlay.id = 'help-overlay';
   overlay.className = 'hidden';
-  overlay.innerHTML = buildHTML();
+  overlay.innerHTML = HELP_HTML;
   document.body.appendChild(overlay);
 
   let visible = false;
@@ -272,14 +323,9 @@ export function createHelpOverlay({ onDismiss } = {}) {
     overlay.classList.add('hidden');
   }
 
-  function toggle() {
-    if (visible) hide();
-    else show();
-  }
-
   function isVisible() {
     return visible;
   }
 
-  return { show, hide, toggle, isVisible };
+  return { show, hide, isVisible };
 }
