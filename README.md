@@ -59,6 +59,10 @@ npm run build
 
 Static files are output to `dist/`. Serve them with any static file server.
 
+## Development
+
+This project was developed with the assistance of [Claude Code](https://claude.ai/code) and the [Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin) plugin.
+
 ## License
 
 MIT
