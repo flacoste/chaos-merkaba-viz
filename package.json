@@ -1,19 +1,16 @@
 {
   "name": "chaos-merkaba-viz",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "private": true,
+  "description": "WebGL visualization of two tetrahedra fusing into a chaos sphere",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["threejs", "webgl", "merkaba", "sacred-geometry", "visualization"],
+  "author": "Francis J. Lacoste",
+  "license": "MIT",
   "dependencies": {
     "lil-gui": "^0.21.0",
     "three": "^0.182.0"
